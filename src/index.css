@@ -1,0 +1,120 @@
+:root {
+  --brutal-black: #000000;
+  --brutal-ice: #8bbfd5;
+  --brutal-white: #ffffff;
+  --brutal-bg: #f0f0f0;
+  --brutal-border: 3px solid var(--brutal-black);
+  --brutal-shadow: 5px 5px 0px var(--brutal-black);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Space Grotesk', sans-serif;
+  background-color: var(--brutal-bg);
+  color: var(--brutal-black);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden;
+  /* Prevent body scroll, handle in app-container */
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -1px;
+}
+
+button {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  border: var(--brutal-border);
+  background-color: var(--brutal-white);
+  color: var(--brutal-black);
+  box-shadow: var(--brutal-shadow);
+  cursor: pointer;
+  transition: all 0.1s ease-in-out;
+}
+
+button:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0px var(--brutal-black);
+}
+
+button:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px var(--brutal-black);
+}
+
+input,
+select {
+  font-family: 'Space Grotesk', sans-serif;
+  border: var(--brutal-border);
+  padding: 10px;
+  outline: none;
+  background-color: var(--brutal-white);
+}
+
+input:focus,
+select:focus {
+  background-color: var(--brutal-ice);
+}
+
+/* Leaflet overrides for brutalist look */
+.leaflet-popup-content-wrapper {
+  border-radius: 0;
+  border: var(--brutal-border);
+  box-shadow: var(--brutal-shadow);
+  font-family: 'Space Grotesk', sans-serif;
+}
+
+.leaflet-popup-tip {
+  display: none;
+  /* Hide the tip for a blockier look */
+}
+
+/* Responsive Layout */
+.app-container {
+  display: flex;
+  height: 100%;
+  /* Use 100% of body height */
+  width: 100%;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    flex-direction: column-reverse;
+    /* Map on top (or bottom depending on preference, usually map is main) - let's do column-reverse to have map top/middle and sidebar bottom? No, standard is Sidebar as drawer or top/bottom. Let's do column. */
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100% !important;
+    height: 40% !important;
+    border-right: none !important;
+    border-top: var(--brutal-border);
+  }
+
+  .map-container {
+    flex: 1;
+  }
+}
