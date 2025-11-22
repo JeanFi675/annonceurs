@@ -3,9 +3,11 @@ import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import MapComponent from './components/Map';
 import Sidebar from './components/Sidebar';
 import EntityDetails from './pages/EntityDetails';
+import Login from './components/Login';
 import { fetchEntities } from './services/api';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [entities, setEntities] = useState([]);
   const [filteredEntities, setFilteredEntities] = useState([]);
   const [filters, setFilters] = useState({
@@ -15,6 +17,19 @@ function App() {
     Search: ''
   });
 
+  // Check if user is already authenticated (session storage)
+  useEffect(() => {
+    const authStatus = sessionStorage.getItem('isAuthenticated');
+    if (authStatus === 'true') {
+      setIsAuthenticated(true);
+    }
+  }, []);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    sessionStorage.setItem('isAuthenticated', 'true');
+  };
+
   const loadData = async () => {
     const data = await fetchEntities();
     console.log('Loaded entities:', data);
@@ -23,8 +38,10 @@ function App() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isAuthenticated) {
+      loadData();
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let result = entities;
@@ -61,6 +78,11 @@ function App() {
     setNewLocation({ lat, lng });
     // Optionally open the sidebar modal if not open, but for now just set state
   };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <Router>
