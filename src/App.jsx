@@ -89,7 +89,7 @@ function App() {
             </div>
           </div>
         } />
-        <Route path="/entity/:id" element={<EntityDetails entities={entities} />} />
+        <Route path="/entity/:id" element={<EntityDetails entities={entities} refreshEntities={loadData} />} />
       </Routes>
     </Router>
   );

@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { updateEntity } from '../services/api';
 
-const EntityDetails = ({ entities }) => {
+const EntityDetails = ({ entities, refreshEntities }) => {
     const { id } = useParams();
     const entity = entities.find(e => String(e.Id) === id);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     if (!entity) {
         return (
@@ -13,6 +16,51 @@ const EntityDetails = ({ entities }) => {
             </div>
         );
     }
+
+    // Parse existing comments
+    const parseComments = (commentsText) => {
+        if (!commentsText) return [];
+        const lines = commentsText.split('\n').filter(line => line.trim());
+        return lines.map(line => {
+            const match = line.match(/^\[(.+?)\]\s*(.+)$/);
+            if (match) {
+                return { timestamp: match[1], text: match[2] };
+            }
+            return { timestamp: '', text: line };
+        });
+    };
+
+    const comments = parseComments(entity.Comments);
+
+    const handleAddComment = async () => {
+        if (!newComment.trim()) {
+            alert('Veuillez saisir un commentaire.');
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const now = new Date();
+            const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+            const formattedComment = `[${timestamp}] ${newComment.trim()}`;
+
+            const existingComments = entity.Comments || '';
+            const updatedComments = existingComments
+                ? `${existingComments}\n${formattedComment}`
+                : formattedComment;
+
+            await updateEntity(entity.Id, { Comments: updatedComments });
+
+            setNewComment('');
+            if (refreshEntities) await refreshEntities();
+            alert('Commentaire ajouté avec succès !');
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            alert('Erreur lors de l\'ajout du commentaire.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     return (
         <div className="entity-details-container">
@@ -29,8 +77,6 @@ const EntityDetails = ({ entities }) => {
                     }}>
                         ← Retour
                     </Link>
-
-
                 </div>
 
                 <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', marginBottom: '10px', wordBreak: 'break-word' }}>{entity.title}</h1>
@@ -52,6 +98,70 @@ const EntityDetails = ({ entities }) => {
                         <Field label="Message" value={entity.Message} isHtml />
                         <Field label="Date Envoi Mail" value={entity.dateEnvoiMail} />
                         <Field label="Recette" value={entity.Recette ? `${entity.Recette} €` : null} />
+                    </Section>
+
+                    <Section title="Suivi des Démarches">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            {/* Existing comments */}
+                            {comments.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '300px', overflowY: 'auto' }}>
+                                    {comments.map((comment, index) => (
+                                        <div key={index} style={{
+                                            padding: '10px',
+                                            backgroundColor: '#f5f5f5',
+                                            border: '2px solid #000',
+                                            boxShadow: '2px 2px 0px #000'
+                                        }}>
+                                            <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '5px', fontWeight: 'bold' }}>
+                                                {comment.timestamp}
+                                            </div>
+                                            <div style={{ fontSize: '1rem' }}>
+                                                {comment.text}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ color: '#666', fontStyle: 'italic' }}>Aucun commentaire pour le moment.</p>
+                            )}
+
+                            {/* Add new comment */}
+                            <div style={{ marginTop: '10px', borderTop: '2px solid #000', paddingTop: '15px' }}>
+                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                    Ajouter un commentaire
+                                </label>
+                                <textarea
+                                    value={newComment}
+                                    onChange={(e) => setNewComment(e.target.value)}
+                                    placeholder="Saisissez votre commentaire..."
+                                    style={{
+                                        width: '100%',
+                                        minHeight: '80px',
+                                        padding: '10px',
+                                        border: '2px solid #000',
+                                        fontFamily: 'inherit',
+                                        fontSize: '1rem',
+                                        resize: 'vertical'
+                                    }}
+                                />
+                                <button
+                                    onClick={handleAddComment}
+                                    disabled={isSubmitting || !newComment.trim()}
+                                    style={{
+                                        marginTop: '10px',
+                                        padding: '10px 20px',
+                                        backgroundColor: 'var(--brutal-ice)',
+                                        border: 'var(--brutal-border)',
+                                        boxShadow: 'var(--brutal-shadow)',
+                                        fontWeight: 'bold',
+                                        cursor: isSubmitting || !newComment.trim() ? 'not-allowed' : 'pointer',
+                                        opacity: isSubmitting || !newComment.trim() ? 0.5 : 1
+                                    }}
+                                >
+                                    {isSubmitting ? 'Ajout en cours...' : 'Ajouter le commentaire'}
+                                </button>
+                            </div>
+                        </div>
                     </Section>
 
                 </div>

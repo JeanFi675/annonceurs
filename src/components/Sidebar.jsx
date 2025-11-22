@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode }) => {
     // Define all possible options from NocoDB schema
     const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
-    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires'];
+    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat'];
 
     // Extract unique values for filters (merge with schema options)
     const statusOptions = [...new Set([...allStatusOptions, ...entities.map(e => e.Statuts).filter(Boolean)])];
@@ -14,6 +14,17 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
     // Extract Referents
     const referentOptions = [...new Set(entities.map(e => e.Référent_partenariat_club).filter(Boolean))];
+
+    // Calculate Financial Summary
+    const entitiesWithRevenue = entities.filter(e => e.Recette && parseFloat(e.Recette) > 0);
+    const totalRevenue = entitiesWithRevenue.reduce((sum, e) => sum + parseFloat(e.Recette), 0);
+
+    // Group revenue by Type
+    const revenueByType = entitiesWithRevenue.reduce((acc, e) => {
+        const type = e.Type || 'Non spécifié';
+        acc[type] = (acc[type] || 0) + parseFloat(e.Recette);
+        return acc;
+    }, {});
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [formData, setFormData] = useState({
@@ -255,6 +266,25 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                     ))}
                 </select>
             </div>
+
+            {/* Financial Summary Section */}
+            {totalRevenue > 0 && (
+                <div style={{ marginTop: '20px', borderTop: '2px solid black', paddingTop: '10px' }}>
+                    <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Suivi Financier</h3>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '5px' }}>
+                        <span>Total Recettes:</span>
+                        <span>{totalRevenue.toLocaleString('fr-FR')} €</span>
+                    </div>
+                    <div style={{ fontSize: '0.9rem' }}>
+                        {Object.entries(revenueByType).map(([type, amount]) => (
+                            <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                <span>{type}:</span>
+                                <span>{amount.toLocaleString('fr-FR')} €</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div style={{ marginTop: '20px' }}>
                 <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#666' }}>
