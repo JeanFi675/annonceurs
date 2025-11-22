@@ -25,22 +25,87 @@ const createCustomIcon = (isAssigned) => {
     });
 };
 
-const MapComponent = ({ entities }) => {
-    // Center on Haute-Savoie (approx) - Zoom increased
-    const position = [45.9, 6.1];
+import { useMapEvents } from 'react-leaflet';
+
+import { useState } from 'react';
+
+// Component to handle map events
+const MapEvents = ({ onMapClick, isAddMode }) => {
+    useMapEvents({
+        click(e) {
+            if (isAddMode) {
+                onMapClick(e.latlng.lat, e.latlng.lng);
+            }
+        },
+        contextmenu(e) {
+            // Optional: allow right click to always add? Or respect mode?
+            // Let's respect mode for consistency, or maybe allow right click as shortcut?
+            // User asked for "clique long", contextmenu is close to that.
+            // Let's allow contextmenu to ALWAYS add, as a power user feature?
+            // Or stick to the requested "Add Mode" button for clarity.
+            if (isAddMode) {
+                onMapClick(e.latlng.lat, e.latlng.lng);
+            }
+        }
+    });
+    return null;
+};
+
+const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMode }) => {
+    // Center on Saint-Pierre-en-Faucigny
+    // La Roche and Bonneville should be visible
+    const position = [46.0608, 6.3725];
+
+    const toggleAddMode = () => {
+        setIsAddMode(!isAddMode);
+    };
 
     return (
-        <div style={{ height: '100%', width: '100%', border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)' }}>
-            <MapContainer center={position} zoom={11} style={{ height: '100%', width: '100%' }}>
+        <div style={{ height: '100%', width: '100%', border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)', position: 'relative' }}>
+            <MapContainer
+                center={position}
+                zoom={12}
+                style={{ height: '100%', width: '100%', cursor: isAddMode ? 'crosshair' : 'grab' }}
+            >
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
+                <MapEvents onMapClick={(lat, lng) => {
+                    onMapClick(lat, lng);
+                    setIsAddMode(false); // Exit add mode after picking
+                }} isAddMode={isAddMode} />
+
+                {newLocation && (
+                    <Marker
+                        position={[newLocation.lat, newLocation.lng]}
+                        icon={createCustomIcon(false)}
+                    >
+                        <Popup>Nouveau lieu sélectionné</Popup>
+                    </Marker>
+                )}
+
                 {entities.map((entity) => {
                     // Extract coordinates
                     let lat, lng;
 
-                    if (entity.Place) {
+                    if (entity.gps) {
+                        // GeoData format is lat;lng
+                        const parts = entity.gps.split(';');
+                        if (parts.length === 2) {
+                            lat = parseFloat(parts[0]);
+                            lng = parseFloat(parts[1]);
+                        } else {
+                            // Fallback for comma if mixed
+                            const partsComma = entity.gps.split(',');
+                            if (partsComma.length === 2) {
+                                lat = parseFloat(partsComma[0]);
+                                lng = parseFloat(partsComma[1]);
+                            }
+                        }
+                    }
+
+                    if (!lat && !lng && entity.Place) {
                         const latMatch = entity.Place.match(/!3d(-?\d+\.\d+)/);
                         const lngMatch = entity.Place.match(/!4d(-?\d+\.\d+)/);
 
@@ -82,6 +147,17 @@ const MapComponent = ({ entities }) => {
                                             }}>
                                                 Voir la fiche
                                             </Link>
+                                            <Link to="/" state={{ editEntity: entity }} style={{
+                                                backgroundColor: '#ffeb3b',
+                                                color: 'black',
+                                                padding: '5px 10px',
+                                                textDecoration: 'none',
+                                                textAlign: 'center',
+                                                fontWeight: 'bold',
+                                                border: '1px solid black'
+                                            }}>
+                                                ✎ Modifier
+                                            </Link>
                                         </div>
                                     </div>
                                 </Popup>
@@ -91,6 +167,48 @@ const MapComponent = ({ entities }) => {
                     return null;
                 })}
             </MapContainer>
+
+            {/* Add Mode Toggle Button */}
+            <button
+                onClick={toggleAddMode}
+                style={{
+                    position: 'absolute',
+                    bottom: '30px',
+                    right: '30px',
+                    zIndex: 1000,
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    backgroundColor: isAddMode ? '#ff4d4d' : 'var(--brutal-ice)',
+                    border: '3px solid black',
+                    boxShadow: '4px 4px 0px black',
+                    fontSize: '2rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    transition: 'transform 0.1s'
+                }}
+                title={isAddMode ? "Annuler l'ajout" : "Ajouter un lieu"}
+            >
+                {isAddMode ? '×' : '+'}
+            </button>
+            {isAddMode && (
+                <div style={{
+                    position: 'absolute',
+                    bottom: '100px',
+                    right: '30px',
+                    zIndex: 1000,
+                    backgroundColor: 'white',
+                    padding: '10px',
+                    border: '2px solid black',
+                    boxShadow: '3px 3px 0px black',
+                    fontWeight: 'bold'
+                }}>
+                    Cliquez sur la carte pour placer le point
+                </div>
+            )}
         </div>
     );
 };

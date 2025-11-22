@@ -15,34 +15,23 @@ const EntityDetails = ({ entities }) => {
     }
 
     return (
-        <div style={{
-            height: '100vh',
-            width: '100vw',
-            overflowY: 'auto',
-            backgroundColor: 'var(--brutal-bg)',
-            padding: '20px'
-        }}>
-            <div style={{
-                maxWidth: '800px',
-                margin: '0 auto',
-                backgroundColor: 'var(--brutal-white)',
-                border: 'var(--brutal-border)',
-                boxShadow: 'var(--brutal-shadow)',
-                padding: '20px',
-                minHeight: 'min-content'
-            }}>
-                <Link to="/" style={{
-                    display: 'inline-block',
-                    marginBottom: '20px',
-                    fontWeight: 'bold',
-                    textDecoration: 'none',
-                    border: 'var(--brutal-border)',
-                    padding: '10px 20px',
-                    boxShadow: 'var(--brutal-shadow)',
-                    backgroundColor: 'var(--brutal-white)'
-                }}>
-                    ← Retour
-                </Link>
+        <div className="entity-details-container">
+            <div className="entity-details-content">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <Link to="/" style={{
+                        display: 'inline-block',
+                        fontWeight: 'bold',
+                        textDecoration: 'none',
+                        border: 'var(--brutal-border)',
+                        padding: '10px 20px',
+                        boxShadow: 'var(--brutal-shadow)',
+                        backgroundColor: 'var(--brutal-white)'
+                    }}>
+                        ← Retour
+                    </Link>
+
+
+                </div>
 
                 <h1 style={{ fontSize: 'clamp(1.5rem, 5vw, 2.5rem)', marginBottom: '10px', wordBreak: 'break-word' }}>{entity.title}</h1>
 
@@ -60,7 +49,7 @@ const EntityDetails = ({ entities }) => {
                         <Field label="Type" value={entity.Type} />
                         <Field label="Référent" value={entity.Référent_partenariat_club || "Non attribué"} />
                         <Field label="Objet" value={entity.Objet} />
-                        <Field label="Message" value={entity.Message} />
+                        <Field label="Message" value={entity.Message} isHtml />
                         <Field label="Date Envoi Mail" value={entity.dateEnvoiMail} />
                         <Field label="Recette" value={entity.Recette ? `${entity.Recette} €` : null} />
                     </Section>
@@ -78,15 +67,17 @@ const Section = ({ title, children }) => (
     </div>
 );
 
-const Field = ({ label, value, isLink, labelLink }) => {
+const Field = ({ label, value, isLink, labelLink, isHtml }) => {
     if (!value) return null;
     return (
-        <div>
+        <div style={{ overflowWrap: 'break-word', wordWrap: 'break-word', maxWidth: '100%' }}>
             <span style={{ fontWeight: 'bold', display: 'block', fontSize: '0.9rem', color: '#666' }}>{label}</span>
             {isLink ? (
                 <a href={value} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brutal-black)', fontWeight: 'bold' }}>
                     {labelLink || value}
                 </a>
+            ) : isHtml ? (
+                <div dangerouslySetInnerHTML={{ __html: value }} style={{ fontSize: '1.1rem' }} />
             ) : (
                 <span style={{ fontSize: '1.1rem' }}>{value}</span>
             )}
