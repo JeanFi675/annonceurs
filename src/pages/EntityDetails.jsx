@@ -115,7 +115,7 @@ const EntityDetails = ({ entities, refreshEntities }) => {
                                             <div style={{ fontSize: '0.85rem', color: '#666', marginBottom: '5px', fontWeight: 'bold' }}>
                                                 {comment.timestamp}
                                             </div>
-                                            <div style={{ fontSize: '1rem' }}>
+                                            <div style={{ fontSize: '1rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
                                                 {comment.text}
                                             </div>
                                         </div>
