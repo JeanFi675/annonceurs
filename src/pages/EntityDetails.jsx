@@ -20,14 +20,35 @@ const EntityDetails = ({ entities, refreshEntities }) => {
     // Parse existing comments
     const parseComments = (commentsText) => {
         if (!commentsText) return [];
-        const lines = commentsText.split('\n').filter(line => line.trim());
-        return lines.map(line => {
-            const match = line.match(/^\[(.+?)\]\s*(.+)$/);
+
+        const lines = commentsText.split('\n');
+        const comments = [];
+        let currentComment = null;
+
+        lines.forEach(line => {
+            // Check if line starts with a timestamp [...]
+            const match = line.match(/^\[(.+?)\]\s*(.*)$/);
             if (match) {
-                return { timestamp: match[1], text: match[2] };
+                // New comment starts
+                if (currentComment) {
+                    comments.push(currentComment);
+                }
+                currentComment = {
+                    timestamp: match[1],
+                    text: match[2] || ''
+                };
+            } else if (currentComment && line.trim()) {
+                // Continue previous comment (multi-line)
+                currentComment.text += '\n' + line;
             }
-            return { timestamp: '', text: line };
         });
+
+        // Don't forget the last comment
+        if (currentComment) {
+            comments.push(currentComment);
+        }
+
+        return comments;
     };
 
     const comments = parseComments(entity.Comments);
