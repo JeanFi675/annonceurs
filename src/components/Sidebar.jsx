@@ -130,6 +130,8 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
 
     const handleAddOrUpdate = async () => {
+        if (isSubmitting) return;
+
         if (!formData.gps) {
             alert('Il est impératif d\'avoir un point GPS. Veuillez géolocaliser l\'adresse ou cliquer sur la carte.');
             return;
