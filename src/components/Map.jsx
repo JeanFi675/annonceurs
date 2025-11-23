@@ -1,18 +1,42 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import React, { useState } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { Link } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import ReactDOM from 'react-dom';
+import { updateEntity } from '../services/api';
 
 // Custom Neo-brutalist Marker Icons
-const createCustomIcon = (isAssigned) => {
-    const color = isAssigned ? '#4ade80' : '#ffffff'; // Green if assigned, White if not
-    const borderColor = '#000000';
+const createCustomIcon = (status, isAssigned) => {
+    const backgroundColor = isAssigned ? '#8bbfd5' : '#ffffff'; // Ice if assigned, White if not
+    let borderColor = '#000000'; // Default black
+
+    // Color logic based on status for BORDER and SHADOW
+    switch (status) {
+        case 'À contacter':
+        case 'Sans réponse':
+            borderColor = '#FFA500'; // Orange
+            break;
+        case 'En discussion':
+            borderColor = '#3b82f6'; // Blue
+            break;
+        case 'Confirmé (en attente de paiement)':
+        case 'Paiement effectué':
+            borderColor = '#4ade80'; // Green (same as assigned background, might need contrast check or distinct shade)
+            // If background is green (assigned) and border is green (confirmed), it might look solid green.
+            // Let's keep it consistent with user request.
+            break;
+        case 'Refusé':
+            borderColor = '#ef4444'; // Red
+            break;
+        default:
+            borderColor = '#000000';
+    }
 
     return L.divIcon({
         className: 'custom-marker',
         html: `<div style="
-      background-color: ${color};
+      background-color: ${backgroundColor};
       width: 20px;
       height: 20px;
       border: 3px solid ${borderColor};
@@ -25,10 +49,6 @@ const createCustomIcon = (isAssigned) => {
     });
 };
 
-import { useMapEvents } from 'react-leaflet';
-
-import { useState } from 'react';
-
 // Component to handle map events
 const MapEvents = ({ onMapClick, isAddMode }) => {
     useMapEvents({
@@ -38,11 +58,6 @@ const MapEvents = ({ onMapClick, isAddMode }) => {
             }
         },
         contextmenu(e) {
-            // Optional: allow right click to always add? Or respect mode?
-            // Let's respect mode for consistency, or maybe allow right click as shortcut?
-            // User asked for "clique long", contextmenu is close to that.
-            // Let's allow contextmenu to ALWAYS add, as a power user feature?
-            // Or stick to the requested "Add Mode" button for clarity.
             if (isAddMode) {
                 onMapClick(e.latlng.lat, e.latlng.lng);
             }
@@ -51,13 +66,55 @@ const MapEvents = ({ onMapClick, isAddMode }) => {
     return null;
 };
 
-const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMode }) => {
+const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMode, refreshEntities }) => {
     // Center on Saint-Pierre-en-Faucigny
-    // La Roche and Bonneville should be visible
     const position = [46.0608, 6.3725];
+
+    const [showAssignModal, setShowAssignModal] = useState(false);
+    const [assignEntity, setAssignEntity] = useState(null);
+    const [selectedReferent, setSelectedReferent] = useState('');
+    const [newReferent, setNewReferent] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Extract unique referents for the dropdown
+    const referentOptions = [...new Set(entities.map(e => e.Référent_partenariat_club).filter(Boolean))];
 
     const toggleAddMode = () => {
         setIsAddMode(!isAddMode);
+    };
+
+    const handleOpenAssignModal = (entity) => {
+        setAssignEntity(entity);
+        setSelectedReferent('');
+        setNewReferent('');
+        setShowAssignModal(true);
+    };
+
+    const handleCloseAssignModal = () => {
+        setShowAssignModal(false);
+        setAssignEntity(null);
+    };
+
+    const handleAssign = async () => {
+        const referentToAssign = newReferent.trim() || selectedReferent;
+
+        if (!referentToAssign) {
+            alert("Veuillez sélectionner ou saisir un référent.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            await updateEntity(assignEntity.Id, { Référent_partenariat_club: referentToAssign });
+            alert(`Lieu attribué à ${referentToAssign} !`);
+            if (refreshEntities) await refreshEntities();
+            handleCloseAssignModal();
+        } catch (error) {
+            console.error("Erreur lors de l'attribution:", error);
+            alert("Erreur lors de l'attribution.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -79,7 +136,7 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                 {newLocation && (
                     <Marker
                         position={[newLocation.lat, newLocation.lng]}
-                        icon={createCustomIcon(false)}
+                        icon={createCustomIcon('default', false)}
                     >
                         <Popup>Nouveau lieu sélectionné</Popup>
                     </Marker>
@@ -90,13 +147,11 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                     let lat, lng;
 
                     if (entity.gps) {
-                        // GeoData format is lat;lng
                         const parts = entity.gps.split(';');
                         if (parts.length === 2) {
                             lat = parseFloat(parts[0]);
                             lng = parseFloat(parts[1]);
                         } else {
-                            // Fallback for comma if mixed
                             const partsComma = entity.gps.split(',');
                             if (partsComma.length === 2) {
                                 lat = parseFloat(partsComma[0]);
@@ -125,7 +180,7 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                             <Marker
                                 key={entity.Id}
                                 position={[lat, lng]}
-                                icon={createCustomIcon(isAssigned)}
+                                icon={createCustomIcon(entity.Statuts, isAssigned)}
                             >
                                 <Popup>
                                     <div style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -136,6 +191,21 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                                             <strong>Référent:</strong> {entity.Référent_partenariat_club || 'Non attribué'}
                                         </div>
                                         <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                            {!isAssigned && (
+                                                <button
+                                                    onClick={() => handleOpenAssignModal(entity)}
+                                                    style={{
+                                                        backgroundColor: '#4ade80',
+                                                        color: 'black',
+                                                        padding: '5px 10px',
+                                                        border: '1px solid black',
+                                                        cursor: 'pointer',
+                                                        fontWeight: 'bold'
+                                                    }}
+                                                >
+                                                    S'attribuer
+                                                </button>
+                                            )}
                                             {entity.Place && <a href={entity.Place} target="_blank" rel="noopener noreferrer">Voir sur Google Maps</a>}
                                             <Link to={`/entity/${entity.Id}`} style={{
                                                 backgroundColor: 'var(--brutal-black)',
@@ -208,6 +278,62 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                 }}>
                     Cliquez sur la carte pour placer le point
                 </div>
+            )}
+
+            {/* Assignment Modal */}
+            {showAssignModal && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 10000
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--brutal-white)', padding: '20px',
+                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                        width: '90%', maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Attribuer : {assignEntity?.title}</h3>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Choisir un référent existant</label>
+                            <select
+                                value={selectedReferent}
+                                onChange={(e) => { setSelectedReferent(e.target.value); setNewReferent(''); }}
+                                style={{ width: '100%', padding: '5px' }}
+                            >
+                                <option value="">-- Sélectionner --</option>
+                                {referentOptions.map(opt => (
+                                    <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div style={{ marginBottom: '15px', textAlign: 'center' }}>- OU -</div>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Ajouter un nouveau référent</label>
+                            <input
+                                type="text"
+                                value={newReferent}
+                                onChange={(e) => { setNewReferent(e.target.value); setSelectedReferent(''); }}
+                                placeholder="Nom du référent"
+                                style={{ width: '100%', padding: '5px' }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={handleCloseAssignModal}>Annuler</button>
+                            <button
+                                onClick={handleAssign}
+                                disabled={isSubmitting}
+                                style={{ backgroundColor: 'var(--brutal-ice)', fontWeight: 'bold' }}
+                            >
+                                {isSubmitting ? 'Enregistrement...' : 'Valider'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
         </div>
     );

@@ -6,7 +6,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode }) => {
     // Define all possible options from NocoDB schema
     const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
-    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat'];
+    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
 
     // Extract unique values for filters (merge with schema options)
     const statusOptions = [...new Set([...allStatusOptions, ...entities.map(e => e.Statuts).filter(Boolean)])];
@@ -486,7 +486,8 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
             <div style={{ marginTop: 'auto' }}>
                 <p style={{ fontSize: '0.8rem' }}>
-                    <strong>Total:</strong> {entities.length} entités
+                    <strong>Total:</strong> {entities.length} entités <br />
+                    <strong>Attribués:</strong> {entities.filter(e => e.Référent_partenariat_club).length} / {entities.length}
                 </p>
             </div>
         </>

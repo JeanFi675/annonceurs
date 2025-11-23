@@ -1,12 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { updateEntity } from '../services/api';
+import ReactDOM from 'react-dom';
 
 const EntityDetails = ({ entities, refreshEntities }) => {
     const { id } = useParams();
     const entity = entities.find(e => String(e.Id) === id);
     const [newComment, setNewComment] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Edit Mode State
+    const [isEditing, setIsEditing] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [formData, setFormData] = useState({
+        Statuts: '',
+        Type: '',
+        Recette: ''
+    });
+
+    // Options (should ideally be shared or fetched, but hardcoding for now based on Sidebar)
+    const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
+    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
+
+    useEffect(() => {
+        if (entity) {
+            setFormData({
+                Statuts: entity.Statuts || '',
+                Type: entity.Type || '',
+                Recette: entity.Recette || ''
+            });
+        }
+    }, [entity]);
 
     if (!entity) {
         return (
@@ -83,6 +107,38 @@ const EntityDetails = ({ entities, refreshEntities }) => {
         }
     };
 
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSaveClick = () => {
+        setShowConfirmModal(true);
+    };
+
+    const handleConfirmUpdate = async () => {
+        setIsSubmitting(true);
+        try {
+            const updateData = {
+                Statuts: formData.Statuts,
+                Type: formData.Type,
+                Recette: formData.Recette ? parseFloat(formData.Recette) : null
+            };
+
+            await updateEntity(entity.Id, updateData);
+            if (refreshEntities) await refreshEntities();
+
+            setIsEditing(false);
+            setShowConfirmModal(false);
+            alert('Modifications enregistrées !');
+        } catch (error) {
+            console.error('Error updating entity:', error);
+            alert('Erreur lors de la modification.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     return (
         <div className="entity-details-container">
             <div className="entity-details-content">
@@ -112,13 +168,80 @@ const EntityDetails = ({ entities, refreshEntities }) => {
                     </Section>
 
                     <Section title="Détails Prospection">
-                        <Field label="Statut" value={entity.Statuts} />
-                        <Field label="Type" value={entity.Type} />
-                        <Field label="Référent" value={entity.Référent_partenariat_club || "Non attribué"} />
-                        <Field label="Objet" value={entity.Objet} />
-                        <Field label="Message" value={entity.Message} isHtml />
-                        <Field label="Date Envoi Mail" value={entity.dateEnvoiMail} />
-                        <Field label="Recette" value={entity.Recette ? `${entity.Recette} €` : null} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <h4 style={{ margin: 0 }}>Données modifiables</h4>
+                            {!isEditing ? (
+                                <button
+                                    onClick={() => setIsEditing(true)}
+                                    style={{
+                                        backgroundColor: '#ffeb3b',
+                                        border: '1px solid black',
+                                        padding: '5px 10px',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    ✎ Modifier
+                                </button>
+                            ) : (
+                                <div style={{ display: 'flex', gap: '5px' }}>
+                                    <button
+                                        onClick={() => { setIsEditing(false); setFormData({ Statuts: entity.Statuts, Type: entity.Type, Recette: entity.Recette }); }}
+                                        style={{ padding: '5px 10px', cursor: 'pointer' }}
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        onClick={handleSaveClick}
+                                        style={{
+                                            backgroundColor: '#4ade80',
+                                            border: '1px solid black',
+                                            padding: '5px 10px',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold'
+                                        }}
+                                    >
+                                        Valider
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {isEditing ? (
+                            <div style={{ display: 'grid', gap: '10px', backgroundColor: '#f9f9f9', padding: '10px', border: '1px dashed black' }}>
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block' }}>Statut</label>
+                                    <select name="Statuts" value={formData.Statuts} onChange={handleInputChange} style={{ width: '100%', padding: '5px' }}>
+                                        <option value="">-- Sélectionner --</option>
+                                        {allStatusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block' }}>Type</label>
+                                    <select name="Type" value={formData.Type} onChange={handleInputChange} style={{ width: '100%', padding: '5px' }}>
+                                        <option value="">-- Sélectionner --</option>
+                                        {allTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block' }}>Recette (€)</label>
+                                    <input type="number" name="Recette" value={formData.Recette} onChange={handleInputChange} style={{ width: '100%', padding: '5px' }} />
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <Field label="Statut" value={entity.Statuts} />
+                                <Field label="Type" value={entity.Type} />
+                                <Field label="Recette" value={entity.Recette ? `${entity.Recette} €` : null} />
+                            </>
+                        )}
+
+                        <div style={{ marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+                            <Field label="Référent" value={entity.Référent_partenariat_club || "Non attribué"} />
+                            <Field label="Objet" value={entity.Objet} />
+                            <Field label="Message" value={entity.Message} isHtml />
+                            <Field label="Date Envoi Mail" value={entity.dateEnvoiMail} />
+                        </div>
                     </Section>
 
                     <Section title="Suivi des Démarches">
@@ -187,6 +310,40 @@ const EntityDetails = ({ entities, refreshEntities }) => {
 
                 </div>
             </div>
+
+            {/* Confirmation Modal */}
+            {showConfirmModal && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 10000
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--brutal-white)', padding: '20px',
+                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                        width: '90%', maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Confirmer la modification</h3>
+                        <p>Êtes-vous sûr de vouloir enregistrer ces modifications ?</p>
+                        <div style={{ backgroundColor: '#f0f0f0', padding: '10px', marginBottom: '20px', fontSize: '0.9rem' }}>
+                            <p style={{ margin: '5px 0' }}><strong>Statut:</strong> {formData.Statuts || 'Non défini'}</p>
+                            <p style={{ margin: '5px 0' }}><strong>Type:</strong> {formData.Type || 'Non défini'}</p>
+                            <p style={{ margin: '5px 0' }}><strong>Recette:</strong> {formData.Recette ? `${formData.Recette} €` : '0 €'}</p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setShowConfirmModal(false)}>Annuler</button>
+                            <button
+                                onClick={handleConfirmUpdate}
+                                disabled={isSubmitting}
+                                style={{ backgroundColor: 'var(--brutal-ice)', fontWeight: 'bold' }}
+                            >
+                                {isSubmitting ? 'Enregistrement...' : 'Oui, enregistrer'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
