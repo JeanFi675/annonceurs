@@ -125,6 +125,24 @@ const EntityDetails = ({ entities, refreshEntities }) => {
                 Recette: formData.Recette ? parseFloat(formData.Recette) : null
             };
 
+            // Automatic Logging
+            const changes = [];
+            if (updateData.Statuts !== entity.Statuts) changes.push(`Statut: ${entity.Statuts || 'Vide'} -> ${updateData.Statuts}`);
+            if (updateData.Type !== entity.Type) changes.push(`Type: ${entity.Type || 'Vide'} -> ${updateData.Type}`);
+
+            const oldRecette = entity.Recette ? parseFloat(entity.Recette) : 0;
+            const newRecette = updateData.Recette ? parseFloat(updateData.Recette) : 0;
+            if (oldRecette !== newRecette) changes.push(`Recette: ${oldRecette} -> ${newRecette}`);
+
+            if (changes.length > 0) {
+                const now = new Date();
+                const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                const logMessage = `[${timestamp}] Modification système:\n${changes.join('\n')}`;
+
+                const existingComments = entity.Comments || '';
+                updateData.Comments = existingComments ? `${existingComments}\n${logMessage}` : logMessage;
+            }
+
             await updateEntity(entity.Id, updateData);
             if (refreshEntities) await refreshEntities();
 

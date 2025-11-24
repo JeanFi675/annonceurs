@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route } from 'react-router-dom';
 import MapComponent from './components/Map';
 import Sidebar from './components/Sidebar';
 import EntityDetails from './pages/EntityDetails';
+import History from './pages/History';
 import Login from './components/Login';
 import { fetchEntities } from './services/api';
 
@@ -112,6 +113,7 @@ function App() {
           </div>
         } />
         <Route path="/entity/:id" element={<EntityDetails entities={entities} refreshEntities={loadData} />} />
+        <Route path="/history" element={<History />} />
       </Routes>
     </Router>
   );

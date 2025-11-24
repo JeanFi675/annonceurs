@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { createEntity, updateEntity } from '../services/api';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 
 const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode }) => {
     // Define all possible options from NocoDB schema
@@ -22,7 +22,11 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     // Group revenue by Type
     const revenueByType = entitiesWithRevenue.reduce((acc, e) => {
         const type = e.Type || 'Non spécifié';
-        acc[type] = (acc[type] || 0) + parseFloat(e.Recette);
+        if (!acc[type]) {
+            acc[type] = { amount: 0, count: 0 };
+        }
+        acc[type].amount += parseFloat(e.Recette);
+        acc[type].count += 1;
         return acc;
     }, {});
 
@@ -159,9 +163,31 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             if (formData.Recette) entityData.Recette = parseFloat(formData.Recette);
 
             if (isEditing && editingId) {
+                // Automatic Logging
+                const originalEntity = entities.find(e => e.Id === editingId);
+                if (originalEntity) {
+                    const changes = [];
+                    if (entityData.Statuts !== originalEntity.Statuts) changes.push(`Statut: ${originalEntity.Statuts || 'Vide'} -> ${entityData.Statuts}`);
+                    if (entityData.Type !== originalEntity.Type) changes.push(`Type: ${originalEntity.Type || 'Vide'} -> ${entityData.Type}`);
+                    if (entityData.Recette !== originalEntity.Recette) changes.push(`Recette: ${originalEntity.Recette || 0} -> ${entityData.Recette}`);
+
+                    if (changes.length > 0) {
+                        const now = new Date();
+                        const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                        const logMessage = `[${timestamp}] Modification système:\n${changes.join('\n')}`;
+                        const existingComments = originalEntity.Comments || '';
+                        entityData.Comments = existingComments ? `${existingComments}\n${logMessage}` : logMessage;
+                    }
+                }
+
                 await updateEntity(editingId, entityData);
                 alert('Lieu modifié avec succès !');
             } else {
+                // Automatic Logging for Creation
+                const now = new Date();
+                const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                entityData.Comments = `[${timestamp}] Création du lieu`;
+
                 await createEntity(entityData);
                 alert('Lieu ajouté !');
             }
@@ -225,7 +251,12 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
     return (
         <>
-            <h2 style={{ fontSize: '1.5rem', marginBottom: '10px' }}>Filtres</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Filtres</h2>
+                <Link to="/history" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'var(--brutal-black)' }}>
+                    Historique
+                </Link>
+            </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <label style={{ fontWeight: 'bold' }}>Recherche</label>
@@ -278,10 +309,10 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                         <span>{totalRevenue.toLocaleString('fr-FR')} €</span>
                     </div>
                     <div style={{ fontSize: '0.9rem' }}>
-                        {Object.entries(revenueByType).map(([type, amount]) => (
+                        {Object.entries(revenueByType).map(([type, data]) => (
                             <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span>{type}:</span>
-                                <span>{amount.toLocaleString('fr-FR')} €</span>
+                                <span>{type} ({data.count}):</span>
+                                <span>{data.amount.toLocaleString('fr-FR')} €</span>
                             </div>
                         ))}
                     </div>
