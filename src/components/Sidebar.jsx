@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { createEntity, updateEntity } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import ReferentEntitiesList from './ReferentEntitiesList';
 
-const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode }) => {
+const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden }) => {
     // Define all possible options from NocoDB schema
     const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
     const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
@@ -258,6 +259,21 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 </Link>
             </div>
 
+            {/* Mobile Map Toggle */}
+            <button
+                className="mobile-map-toggle"
+                onClick={() => setIsMapHidden(!isMapHidden)}
+                style={{
+                    marginBottom: '15px',
+                    width: '100%',
+                    padding: '10px',
+                    backgroundColor: isMapHidden ? 'var(--brutal-ice)' : 'var(--brutal-white)',
+                    display: 'none' // Hidden by default, shown via CSS media query
+                }}
+            >
+                {isMapHidden ? '🗺️ Afficher la carte' : '📋 Mode liste complète'}
+            </button>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <label style={{ fontWeight: 'bold' }}>Recherche</label>
                 <input
@@ -299,6 +315,20 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                     ))}
                 </select>
             </div>
+
+            {/* Assigned Entities List */}
+            {filters.Referent && filters.Referent !== 'Non attribué' && (() => {
+                const assignedEntities = entities.filter(e => e.Référent_partenariat_club === filters.Referent);
+                const sortedEntities = [...assignedEntities].sort((a, b) => {
+                    const statusA = a.Statuts || '';
+                    const statusB = b.Statuts || '';
+                    if (statusA !== statusB) return statusA.localeCompare(statusB);
+                    return (a.title || '').localeCompare(b.title || '');
+                });
+                return sortedEntities.length > 0 && (
+                    <ReferentEntitiesList entities={sortedEntities} referentName={filters.Referent} />
+                );
+            })()}
 
             {/* Financial Summary Section */}
             {totalRevenue > 0 && (
