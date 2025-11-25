@@ -69,45 +69,48 @@ const History = () => {
     }
 
     return (
-        <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-                <Link to="/" style={{
-                    display: 'inline-block',
-                    fontWeight: 'bold',
-                    textDecoration: 'none',
-                    border: 'var(--brutal-border)',
-                    padding: '10px 20px',
-                    boxShadow: 'var(--brutal-shadow)',
-                    backgroundColor: 'var(--brutal-white)'
-                }}>
-                    ← Retour
-                </Link>
-                <h1 style={{ margin: 0 }}>Historique Global</h1>
-            </div>
+        <div className="history-container">
+            <div className="history-content">
+                <div className="history-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                    <Link to="/" className="history-back-button" style={{
+                        display: 'inline-block',
+                        fontWeight: 'bold',
+                        textDecoration: 'none',
+                        border: 'var(--brutal-border)',
+                        padding: '10px 20px',
+                        boxShadow: 'var(--brutal-shadow)',
+                        backgroundColor: 'var(--brutal-white)',
+                        color: 'var(--brutal-black)'
+                    }}>
+                        ← Retour
+                    </Link>
+                    <h1 style={{ margin: 0 }}>Historique Global</h1>
+                </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {logs.length === 0 ? (
-                    <p>Aucun historique disponible.</p>
-                ) : (
-                    logs.map((log, index) => (
-                        <div key={index} style={{
-                            border: 'var(--brutal-border)',
-                            boxShadow: 'var(--brutal-shadow)',
-                            padding: '15px',
-                            backgroundColor: '#fff'
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
-                                <span style={{ fontWeight: 'bold', color: '#666' }}>{log.timestampStr}</span>
-                                <Link to={`/entity/${log.entityId}`} style={{ fontWeight: 'bold', color: 'var(--brutal-black)' }}>
-                                    {log.entityTitle}
-                                </Link>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    {logs.length === 0 ? (
+                        <p>Aucun historique disponible.</p>
+                    ) : (
+                        logs.map((log, index) => (
+                            <div key={index} style={{
+                                border: 'var(--brutal-border)',
+                                boxShadow: 'var(--brutal-shadow)',
+                                padding: '15px',
+                                backgroundColor: '#fff'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>
+                                    <span style={{ fontWeight: 'bold', color: '#666' }}>{log.timestampStr}</span>
+                                    <Link to={`/entity/${log.entityId}`} style={{ fontWeight: 'bold', color: 'var(--brutal-black)' }}>
+                                        {log.entityTitle}
+                                    </Link>
+                                </div>
+                                <div style={{ whiteSpace: 'pre-wrap' }}>
+                                    {log.text}
+                                </div>
                             </div>
-                            <div style={{ whiteSpace: 'pre-wrap' }}>
-                                {log.text}
-                            </div>
-                        </div>
-                    ))
-                )}
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );
