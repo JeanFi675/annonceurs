@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { updateEntity } from '../services/api';
+import { generateAttestation } from '../utils/attestationUtils';
 import ReactDOM from 'react-dom';
 
 const EntityDetails = ({ entities, refreshEntities }) => {
@@ -12,6 +13,7 @@ const EntityDetails = ({ entities, refreshEntities }) => {
     // Edit Mode State
     const [isEditing, setIsEditing] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [formData, setFormData] = useState({
         Statuts: '',
         Type: '',
@@ -188,41 +190,59 @@ const EntityDetails = ({ entities, refreshEntities }) => {
                     <Section title="Détails Prospection">
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <h4 style={{ margin: 0 }}>Données modifiables</h4>
-                            {!isEditing ? (
+                            <div style={{ display: 'flex', gap: '10px' }}>
                                 <button
-                                    onClick={() => setIsEditing(true)}
+                                    onClick={() => setShowPaymentModal(true)}
                                     style={{
-                                        backgroundColor: '#ffeb3b',
-                                        border: '1px solid black',
+                                        backgroundColor: '#e0e7ff',
+                                        border: '1px solid #4338ca',
+                                        color: '#4338ca',
                                         padding: '5px 10px',
                                         cursor: 'pointer',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
                                     }}
                                 >
-                                    ✎ Modifier
+                                    📄 Attestation
                                 </button>
-                            ) : (
-                                <div style={{ display: 'flex', gap: '5px' }}>
+                                {!isEditing ? (
                                     <button
-                                        onClick={() => { setIsEditing(false); setFormData({ Statuts: entity.Statuts, Type: entity.Type, Recette: entity.Recette }); }}
-                                        style={{ padding: '5px 10px', cursor: 'pointer' }}
-                                    >
-                                        Annuler
-                                    </button>
-                                    <button
-                                        onClick={handleSaveClick}
+                                        onClick={() => setIsEditing(true)}
                                         style={{
-                                            backgroundColor: '#4ade80',
+                                            backgroundColor: '#ffeb3b',
                                             border: '1px solid black',
                                             padding: '5px 10px',
                                             cursor: 'pointer',
                                             fontWeight: 'bold'
                                         }}
                                     >
-                                        Valider
+                                        ✎ Modifier
                                     </button>
-                                </div>
-                            )}
+                                ) : (
+                                    <div style={{ display: 'flex', gap: '5px' }}>
+                                        <button
+                                            onClick={() => { setIsEditing(false); setFormData({ Statuts: entity.Statuts, Type: entity.Type, Recette: entity.Recette }); }}
+                                            style={{ padding: '5px 10px', cursor: 'pointer' }}
+                                        >
+                                            Annuler
+                                        </button>
+                                        <button
+                                            onClick={handleSaveClick}
+                                            style={{
+                                                backgroundColor: '#4ade80',
+                                                border: '1px solid black',
+                                                padding: '5px 10px',
+                                                cursor: 'pointer',
+                                                fontWeight: 'bold'
+                                            }}
+                                        >
+                                            Valider
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {isEditing ? (
@@ -328,6 +348,56 @@ const EntityDetails = ({ entities, refreshEntities }) => {
 
                 </div>
             </div>
+
+            {/* Payment Method Modal */}
+            {showPaymentModal && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 10000
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--brutal-white)', padding: '20px',
+                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                        width: '90%', maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Mode de Paiement</h3>
+                        <p>Comment le paiement a-t-il été effectué ?</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+                            <button
+                                onClick={() => { generateAttestation(entity, 'Chèque'); setShowPaymentModal(false); }}
+                                style={{
+                                    padding: '10px',
+                                    backgroundColor: '#e0e7ff',
+                                    border: '1px solid #4338ca',
+                                    color: '#4338ca',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                🏦 Chèque
+                            </button>
+                            <button
+                                onClick={() => { generateAttestation(entity, 'Virement'); setShowPaymentModal(false); }}
+                                style={{
+                                    padding: '10px',
+                                    backgroundColor: '#dcfce7',
+                                    border: '1px solid #15803d',
+                                    color: '#15803d',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                💳 Virement
+                            </button>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                            <button onClick={() => setShowPaymentModal(false)}>Annuler</button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* Confirmation Modal */}
             {showConfirmModal && ReactDOM.createPortal(
