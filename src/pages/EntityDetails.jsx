@@ -191,22 +191,24 @@ const EntityDetails = ({ entities, refreshEntities }) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <h4 style={{ margin: 0 }}>Données modifiables</h4>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                                <button
-                                    onClick={() => setShowPaymentModal(true)}
-                                    style={{
-                                        backgroundColor: '#e0e7ff',
-                                        border: '1px solid #4338ca',
-                                        color: '#4338ca',
-                                        padding: '5px 10px',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '5px'
-                                    }}
-                                >
-                                    📄 Attestation
-                                </button>
+                                {(entity.Recette > 0 && entity.Type) && (
+                                    <button
+                                        onClick={() => setShowPaymentModal(true)}
+                                        style={{
+                                            backgroundColor: '#e0e7ff',
+                                            border: '1px solid #4338ca',
+                                            color: '#4338ca',
+                                            padding: '5px 10px',
+                                            cursor: 'pointer',
+                                            fontWeight: 'bold',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '5px'
+                                        }}
+                                    >
+                                        📄 Attestation
+                                    </button>
+                                )}
                                 {!isEditing ? (
                                     <button
                                         onClick={() => setIsEditing(true)}
