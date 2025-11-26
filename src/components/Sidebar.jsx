@@ -268,11 +268,10 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                     width: '100%',
                     padding: '10px',
                     backgroundColor: isMapHidden ? 'var(--brutal-ice)' : 'var(--brutal-white)',
-                    display: 'none' // Hidden by default, shown via CSS media query
                 }}
             >
-                {isMapHidden ? '🗺️ Afficher la carte' : '📋 Mode liste complète'}
-            </button>
+                {isMapHidden ? '🗺️ Afficher la carte' : '📋 Masquer la carte'}
+            </button >
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <label style={{ fontWeight: 'bold' }}>Recherche</label>
@@ -317,37 +316,62 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             </div>
 
             {/* Assigned Entities List */}
-            {filters.Referent && filters.Referent !== 'Non attribué' && (() => {
-                const assignedEntities = entities.filter(e => e.Référent_partenariat_club === filters.Referent);
-                const sortedEntities = [...assignedEntities].sort((a, b) => {
-                    const statusA = a.Statuts || '';
-                    const statusB = b.Statuts || '';
-                    if (statusA !== statusB) return statusA.localeCompare(statusB);
-                    return (a.title || '').localeCompare(b.title || '');
-                });
-                return sortedEntities.length > 0 && (
-                    <ReferentEntitiesList entities={sortedEntities} referentName={filters.Referent} />
-                );
-            })()}
+            {
+                filters.Referent && filters.Referent !== 'Non attribué' && (() => {
+                    const assignedEntities = entities.filter(e => e.Référent_partenariat_club === filters.Referent);
+
+                    const getStatusRank = (status) => {
+                        switch (status) {
+                            case 'À contacter':
+                            case 'Sans réponse':
+                                return 1; // Orange
+                            case 'En discussion':
+                                return 2; // Blue
+                            case 'Confirmé (en attente de paiement)':
+                            case 'Paiement effectué':
+                                return 3; // Green
+                            case 'Refusé':
+                                return 4; // Red
+                            default:
+                                return 5;
+                        }
+                    };
+
+                    const sortedEntities = [...assignedEntities].sort((a, b) => {
+                        const rankA = getStatusRank(a.Statuts);
+                        const rankB = getStatusRank(b.Statuts);
+
+                        if (rankA !== rankB) return rankA - rankB;
+
+                        return (a.title || '').localeCompare(b.title || '');
+                    });
+
+                    return sortedEntities.length > 0 && (
+                        <ReferentEntitiesList entities={sortedEntities} referentName={filters.Referent} />
+                    );
+                })()
+            }
 
             {/* Financial Summary Section */}
-            {totalRevenue > 0 && (
-                <div style={{ marginTop: '20px', borderTop: '2px solid black', paddingTop: '10px' }}>
-                    <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Suivi Financier</h3>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '5px' }}>
-                        <span>Total Recettes:</span>
-                        <span>{totalRevenue.toLocaleString('fr-FR')} €</span>
+            {
+                totalRevenue > 0 && (
+                    <div style={{ marginTop: '20px', borderTop: '2px solid black', paddingTop: '10px' }}>
+                        <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Suivi Financier</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '5px' }}>
+                            <span>Total Recettes:</span>
+                            <span>{totalRevenue.toLocaleString('fr-FR')} €</span>
+                        </div>
+                        <div style={{ fontSize: '0.9rem' }}>
+                            {Object.entries(revenueByType).map(([type, data]) => (
+                                <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+                                    <span>{type} ({data.count}):</span>
+                                    <span>{data.amount.toLocaleString('fr-FR')} €</span>
+                                </div>
+                            ))}
+                        </div>
                     </div>
-                    <div style={{ fontSize: '0.9rem' }}>
-                        {Object.entries(revenueByType).map(([type, data]) => (
-                            <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                <span>{type} ({data.count}):</span>
-                                <span>{data.amount.toLocaleString('fr-FR')} €</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+                )
+            }
 
             <div style={{ marginTop: '20px' }}>
                 <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#666' }}>
@@ -355,197 +379,199 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 </p>
             </div>
 
-            {showAddModal && ReactDOM.createPortal(
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                    zIndex: 10000
-                }}>
+            {
+                showAddModal && ReactDOM.createPortal(
                     <div style={{
-                        backgroundColor: 'var(--brutal-white)', padding: '20px',
-                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
-                        width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto'
+                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                        zIndex: 10000
                     }}>
-                        <h3 style={{ marginTop: 0 }}>{isEditing ? 'Modifier le lieu' : 'Ajouter un nouveau lieu'}</h3>
+                        <div style={{
+                            backgroundColor: 'var(--brutal-white)', padding: '20px',
+                            border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                            width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto'
+                        }}>
+                            <h3 style={{ marginTop: 0 }}>{isEditing ? 'Modifier le lieu' : 'Ajouter un nouveau lieu'}</h3>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
 
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Nom du lieu <span style={{ color: 'red' }}>*</span>
-                                </label>
-                                <input
-                                    type="text"
-                                    name="title"
-                                    value={formData.title}
-                                    onChange={handleFormChange}
-                                    placeholder="Ex: Restaurant Le Gourmet"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Adresse
-                                </label>
-                                <input
-                                    type="text"
-                                    name="address"
-                                    value={formData.address}
-                                    onChange={handleFormChange}
-                                    placeholder="Ex: 123 Rue de la Paix, 74000 Annecy"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Téléphone
-                                </label>
-                                <input
-                                    type="tel"
-                                    name="phoneNumber"
-                                    value={formData.phoneNumber}
-                                    onChange={handleFormChange}
-                                    placeholder="Ex: 04 50 12 34 56"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Lien Google Maps (Optionnel)
-                                </label>
-                                <input
-                                    type="text"
-                                    name="Place"
-                                    value={formData.Place}
-                                    onChange={handleFormChange}
-                                    placeholder="https://maps.app.goo.gl/..."
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Coordonnées GPS <span style={{ color: 'red' }}>*</span>
-                                </label>
-                                <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Nom du lieu <span style={{ color: 'red' }}>*</span>
+                                    </label>
                                     <input
                                         type="text"
-                                        name="gps"
-                                        value={formData.gps}
-                                        readOnly
-                                        placeholder="Cliquez sur la carte pour définir la position"
-                                        style={{ width: '100%', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                                        name="title"
+                                        value={formData.title}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: Restaurant Le Gourmet"
+                                        style={{ width: '100%' }}
                                     />
-                                    {formData.gps && <span style={{ color: 'green' }}>✓</span>}
                                 </div>
-                                {isEditing && (
-                                    <button
-                                        onClick={handleRelocate}
-                                        style={{ marginTop: '5px', fontSize: '0.8rem', padding: '5px', backgroundColor: '#ffeb3b', border: '1px solid black', cursor: 'pointer' }}
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Adresse
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="address"
+                                        value={formData.address}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: 123 Rue de la Paix, 74000 Annecy"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Téléphone
+                                    </label>
+                                    <input
+                                        type="tel"
+                                        name="phoneNumber"
+                                        value={formData.phoneNumber}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: 04 50 12 34 56"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Lien Google Maps (Optionnel)
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="Place"
+                                        value={formData.Place}
+                                        onChange={handleFormChange}
+                                        placeholder="https://maps.app.goo.gl/..."
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Coordonnées GPS <span style={{ color: 'red' }}>*</span>
+                                    </label>
+                                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
+                                        <input
+                                            type="text"
+                                            name="gps"
+                                            value={formData.gps}
+                                            readOnly
+                                            placeholder="Cliquez sur la carte pour définir la position"
+                                            style={{ width: '100%', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
+                                        />
+                                        {formData.gps && <span style={{ color: 'green' }}>✓</span>}
+                                    </div>
+                                    {isEditing && (
+                                        <button
+                                            onClick={handleRelocate}
+                                            style={{ marginTop: '5px', fontSize: '0.8rem', padding: '5px', backgroundColor: '#ffeb3b', border: '1px solid black', cursor: 'pointer' }}
+                                        >
+                                            📍 Replacer sur la carte
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Site web
+                                    </label>
+                                    <input
+                                        type="url"
+                                        name="website"
+                                        value={formData.website}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: https://www.exemple.fr"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Statut
+                                    </label>
+                                    <select
+                                        name="Statuts"
+                                        value={formData.Statuts}
+                                        onChange={handleFormChange}
+                                        style={{ width: '100%' }}
                                     >
-                                        📍 Replacer sur la carte
-                                    </button>
-                                )}
+                                        <option value="">Par défaut (À contacter)</option>
+                                        {statusOptions.map(opt => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Type
+                                    </label>
+                                    <select
+                                        name="Type"
+                                        value={formData.Type}
+                                        onChange={handleFormChange}
+                                        style={{ width: '100%' }}
+                                    >
+                                        <option value="">Non spécifié</option>
+                                        {typeOptions.map(opt => (
+                                            <option key={opt} value={opt}>{opt}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Référent
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="Referent"
+                                        value={formData.Referent}
+                                        onChange={handleFormChange}
+                                        placeholder="Sélectionnez ou tapez un nom"
+                                        list="referent-options"
+                                        style={{ width: '100%' }}
+                                    />
+                                    <datalist id="referent-options">
+                                        {referentOptions.map(opt => (
+                                            <option key={opt} value={opt} />
+                                        ))}
+                                    </datalist>
+                                </div>
+
+                                <div>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
+                                        Recette (€)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="Recette"
+                                        value={formData.Recette}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: 500"
+                                        style={{ width: '100%' }}
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                </div>
                             </div>
 
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Site web
-                                </label>
-                                <input
-                                    type="url"
-                                    name="website"
-                                    value={formData.website}
-                                    onChange={handleFormChange}
-                                    placeholder="Ex: https://www.exemple.fr"
-                                    style={{ width: '100%' }}
-                                />
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Statut
-                                </label>
-                                <select
-                                    name="Statuts"
-                                    value={formData.Statuts}
-                                    onChange={handleFormChange}
-                                    style={{ width: '100%' }}
-                                >
-                                    <option value="">Par défaut (À contacter)</option>
-                                    {statusOptions.map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Type
-                                </label>
-                                <select
-                                    name="Type"
-                                    value={formData.Type}
-                                    onChange={handleFormChange}
-                                    style={{ width: '100%' }}
-                                >
-                                    <option value="">Non spécifié</option>
-                                    {typeOptions.map(opt => (
-                                        <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Référent
-                                </label>
-                                <input
-                                    type="text"
-                                    name="Referent"
-                                    value={formData.Referent}
-                                    onChange={handleFormChange}
-                                    placeholder="Sélectionnez ou tapez un nom"
-                                    list="referent-options"
-                                    style={{ width: '100%' }}
-                                />
-                                <datalist id="referent-options">
-                                    {referentOptions.map(opt => (
-                                        <option key={opt} value={opt} />
-                                    ))}
-                                </datalist>
-                            </div>
-
-                            <div>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                    Recette (€)
-                                </label>
-                                <input
-                                    type="number"
-                                    name="Recette"
-                                    value={formData.Recette}
-                                    onChange={handleFormChange}
-                                    placeholder="Ex: 500"
-                                    style={{ width: '100%' }}
-                                    step="0.01"
-                                    min="0"
-                                />
+                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                                <button onClick={handleCloseModal}>Annuler</button>
+                                <button onClick={handleAddOrUpdate} disabled={isSubmitting} style={{ backgroundColor: 'var(--brutal-ice)' }}>
+                                    {isSubmitting ? (isEditing ? 'Modification...' : 'Ajout...') : (isEditing ? 'Enregistrer' : 'Ajouter')}
+                                </button>
                             </div>
                         </div>
-
-                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                            <button onClick={handleCloseModal}>Annuler</button>
-                            <button onClick={handleAddOrUpdate} disabled={isSubmitting} style={{ backgroundColor: 'var(--brutal-ice)' }}>
-                                {isSubmitting ? (isEditing ? 'Modification...' : 'Ajout...') : (isEditing ? 'Enregistrer' : 'Ajouter')}
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+                    </div>,
+                    document.body
+                )
+            }
 
             <div style={{ marginTop: 'auto' }}>
                 <p style={{ fontSize: '0.8rem' }}>
