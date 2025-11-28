@@ -81,18 +81,22 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     // Reverse geocoding function
     const reverseGeocode = async (lat, lng) => {
         try {
-            // Using BigDataCloud free API to avoid Nominatim CORS/403 issues on localhost
-            const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=fr`);
+            // Using api-adresse.data.gouv.fr for better precision in France
+            const response = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${lng}&lat=${lat}`);
             const data = await response.json();
-            if (data) {
-                // Construct address from available fields
-                const parts = [];
-                if (data.locality) parts.push(data.locality);
-                if (data.city && data.city !== data.locality) parts.push(data.city);
-                if (data.postcode) parts.push(data.postcode);
-                if (data.principalSubdivision) parts.push(data.principalSubdivision);
 
-                const address = parts.join(', ');
+            if (data && data.features && data.features.length > 0) {
+                const feature = data.features[0];
+                const { housenumber, street, postcode, city } = feature.properties;
+
+                // Construct address
+                const parts = [];
+                if (housenumber) parts.push(housenumber);
+                if (street) parts.push(street);
+                if (postcode) parts.push(postcode);
+                if (city) parts.push(city);
+
+                const address = parts.join(' ');
 
                 if (address) {
                     setFormData(prev => ({
