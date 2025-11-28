@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { Link } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
@@ -69,17 +69,64 @@ const MapEvents = ({ onMapClick, isAddMode }) => {
 const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMode, refreshEntities }) => {
     // Center on Saint-Pierre-en-Faucigny
     const position = [46.0608, 6.3725];
+    const mapRef = useRef(null);
 
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [assignEntity, setAssignEntity] = useState(null);
     const [selectedReferent, setSelectedReferent] = useState('');
     const [newReferent, setNewReferent] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
     // Extract unique referents for the dropdown
     const referentOptions = [...new Set(entities.map(e => e.Référent_partenariat_club).filter(Boolean))];
 
+    const detectUserLocation = () => {
+        if (!navigator.geolocation) {
+            alert("La géolocalisation n'est pas supportée par votre navigateur.");
+            return;
+        }
+
+        setIsDetectingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                // Center map on user's location
+                if (mapRef.current) {
+                    mapRef.current.setView([latitude, longitude], 15);
+                }
+                setIsDetectingLocation(false);
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                let errorMessage = "Impossible de détecter votre position.";
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "Vous avez refusé l'accès à votre position.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "Les informations de localisation ne sont pas disponibles.";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "La demande de localisation a expiré.";
+                        break;
+                }
+                alert(errorMessage);
+                setIsDetectingLocation(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+
     const toggleAddMode = () => {
+        if (!isAddMode) {
+            // Entering add mode - detect user location
+            detectUserLocation();
+        }
         setIsAddMode(!isAddMode);
     };
 
@@ -123,6 +170,7 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                 center={position}
                 zoom={12}
                 style={{ height: '100%', width: '100%', cursor: isAddMode ? 'crosshair' : 'grab' }}
+                ref={mapRef}
             >
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -274,9 +322,28 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                     padding: '10px',
                     border: '2px solid black',
                     boxShadow: '3px 3px 0px black',
-                    fontWeight: 'bold'
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    maxWidth: '250px'
                 }}>
-                    Cliquez sur la carte pour placer le point
+                    <div>Cliquez sur la carte pour placer le point</div>
+                    <button
+                        onClick={detectUserLocation}
+                        disabled={isDetectingLocation}
+                        style={{
+                            padding: '8px 12px',
+                            backgroundColor: isDetectingLocation ? '#ccc' : 'var(--brutal-ice)',
+                            border: '2px solid black',
+                            boxShadow: '2px 2px 0px black',
+                            cursor: isDetectingLocation ? 'not-allowed' : 'pointer',
+                            fontWeight: 'bold',
+                            fontSize: '0.9rem'
+                        }}
+                    >
+                        {isDetectingLocation ? '📍 Détection...' : '📍 Me localiser'}
+                    </button>
                 </div>
             )}
 

@@ -47,6 +47,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState(null);
+    const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
     const location = useLocation();
     const navigate = useNavigate();
@@ -248,6 +249,54 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
         // Just hide modal so user can click map
         setIsAddMode(true); // Enable map clicking
         alert("Cliquez sur la carte pour définir la nouvelle position.");
+    };
+
+    const detectUserLocation = () => {
+        if (!navigator.geolocation) {
+            alert("La géolocalisation n'est pas supportée par votre navigateur.");
+            return;
+        }
+
+        setIsDetectingLocation(true);
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const { latitude, longitude } = position.coords;
+                const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                setFormData(prev => ({
+                    ...prev,
+                    gps: `${latitude};${longitude}`,
+                    Place: googleMapsUrl
+                }));
+
+                // Trigger reverse geocoding
+                reverseGeocode(latitude, longitude);
+
+                setIsDetectingLocation(false);
+                alert("Position détectée avec succès !");
+            },
+            (error) => {
+                console.error('Geolocation error:', error);
+                let errorMessage = "Impossible de détecter votre position.";
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = "Vous avez refusé l'accès à votre position.";
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = "Les informations de localisation ne sont pas disponibles.";
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = "La demande de localisation a expiré.";
+                        break;
+                }
+                alert(errorMessage);
+                setIsDetectingLocation(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
     };
 
     return (
@@ -466,14 +515,38 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                                         />
                                         {formData.gps && <span style={{ color: 'green' }}>✓</span>}
                                     </div>
-                                    {isEditing && (
+                                    <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+                                        {isEditing && (
+                                            <button
+                                                onClick={handleRelocate}
+                                                style={{
+                                                    flex: 1,
+                                                    fontSize: '0.8rem',
+                                                    padding: '5px',
+                                                    backgroundColor: '#ffeb3b',
+                                                    border: '1px solid black',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                📍 Replacer sur la carte
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={handleRelocate}
-                                            style={{ marginTop: '5px', fontSize: '0.8rem', padding: '5px', backgroundColor: '#ffeb3b', border: '1px solid black', cursor: 'pointer' }}
+                                            onClick={detectUserLocation}
+                                            disabled={isDetectingLocation}
+                                            style={{
+                                                flex: 1,
+                                                fontSize: '0.8rem',
+                                                padding: '5px',
+                                                backgroundColor: isDetectingLocation ? '#ccc' : 'var(--brutal-ice)',
+                                                border: '1px solid black',
+                                                cursor: isDetectingLocation ? 'not-allowed' : 'pointer',
+                                                fontWeight: 'bold'
+                                            }}
                                         >
-                                            📍 Replacer sur la carte
+                                            {isDetectingLocation ? '📍 Détection...' : '📍 Me localiser'}
                                         </button>
-                                    )}
+                                    </div>
                                 </div>
 
                                 <div>
