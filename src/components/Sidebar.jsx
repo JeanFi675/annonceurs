@@ -4,7 +4,7 @@ import { createEntity, updateEntity } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
 
-const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden }) => {
+const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden, setIsSidebarHidden }) => {
     // Define all possible options from NocoDB schema
     const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
     const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
@@ -212,6 +212,11 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             setEditingId(null);
             setIsAddMode(false); // Ensure add mode is off
 
+            // Restore sidebar on mobile
+            if (setIsSidebarHidden && window.innerWidth <= 768) {
+                setIsSidebarHidden(false);
+            }
+
             if (refreshEntities) refreshEntities();
         } catch (e) {
             const errorMsg = e.response?.data?.message || e.response?.data?.msg || e.message || 'Erreur lors de l\'opération';
@@ -227,6 +232,12 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
         setIsEditing(false);
         setEditingId(null);
         setIsAddMode(false); // Ensure add mode is off
+
+        // Restore sidebar on mobile
+        if (setIsSidebarHidden && window.innerWidth <= 768) {
+            setIsSidebarHidden(false);
+        }
+
         // Reset form data on cancel to avoid stale data for next add
         setFormData({
             Place: '',

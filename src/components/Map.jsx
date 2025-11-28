@@ -189,6 +189,10 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                 <MapEvents onMapClick={(lat, lng) => {
                     onMapClick(lat, lng);
                     setIsAddMode(false); // Exit add mode after picking
+                    // Restore sidebar on mobile
+                    if (setIsSidebarHidden && window.innerWidth <= 768) {
+                        setIsSidebarHidden(false);
+                    }
                 }} isAddMode={isAddMode} />
 
                 {newLocation && (

@@ -103,6 +103,7 @@ function App() {
                 setIsAddMode={setIsAddMode}
                 isMapHidden={isMapHidden}
                 setIsMapHidden={setIsMapHidden}
+                setIsSidebarHidden={setIsSidebarHidden}
               />
             </div>
             <div className={`map-container ${isSidebarHidden ? 'map-fullscreen' : ''} ${isMapHidden ? 'map-hidden' : ''}`}>
