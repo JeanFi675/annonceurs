@@ -74,6 +74,7 @@ function App() {
 
   const [newLocation, setNewLocation] = useState(null); // { lat, lng }
   const [isAddMode, setIsAddMode] = useState(false);
+  const [isSidebarHidden, setIsSidebarHidden] = useState(false);
   const [isMapHidden, setIsMapHidden] = useState(false);
 
   const handleMapClick = (lat, lng) => {
@@ -91,7 +92,7 @@ function App() {
       <Routes>
         <Route path="/" element={
           <div className="app-container">
-            <div className={`sidebar ${isMapHidden ? 'full-width' : ''}`}>
+            <div className={`sidebar ${isSidebarHidden ? 'sidebar-hidden' : ''} ${isMapHidden ? 'full-width' : ''}`}>
               <Sidebar
                 filters={filters}
                 setFilters={setFilters}
@@ -104,13 +105,15 @@ function App() {
                 setIsMapHidden={setIsMapHidden}
               />
             </div>
-            <div className={`map-container ${isMapHidden ? 'map-hidden' : ''}`}>
+            <div className={`map-container ${isSidebarHidden ? 'map-fullscreen' : ''} ${isMapHidden ? 'map-hidden' : ''}`}>
               <MapComponent
                 entities={filteredEntities}
                 onMapClick={handleMapClick}
                 newLocation={newLocation}
                 isAddMode={isAddMode}
                 setIsAddMode={setIsAddMode}
+                refreshEntities={loadData}
+                setIsSidebarHidden={setIsSidebarHidden}
               />
             </div>
           </div>

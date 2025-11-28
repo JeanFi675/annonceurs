@@ -66,7 +66,7 @@ const MapEvents = ({ onMapClick, isAddMode }) => {
     return null;
 };
 
-const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMode, refreshEntities }) => {
+const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMode, refreshEntities, setIsSidebarHidden }) => {
     // Center on Saint-Pierre-en-Faucigny
     const position = [46.0608, 6.3725];
     const mapRef = useRef(null);
@@ -91,9 +91,9 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                // Center map on user's location
+                // Center map on user's location with high zoom
                 if (mapRef.current) {
-                    mapRef.current.setView([latitude, longitude], 15);
+                    mapRef.current.setView([latitude, longitude], 18);
                 }
                 setIsDetectingLocation(false);
             },
@@ -126,6 +126,16 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
         if (!isAddMode) {
             // Entering add mode - detect user location
             detectUserLocation();
+
+            // Hide sidebar on mobile for better map visibility
+            if (setIsSidebarHidden && window.innerWidth <= 768) {
+                setIsSidebarHidden(true);
+            }
+        } else {
+            // Exiting add mode - show sidebar again on mobile
+            if (setIsSidebarHidden && window.innerWidth <= 768) {
+                setIsSidebarHidden(false);
+            }
         }
         setIsAddMode(!isAddMode);
     };
@@ -313,7 +323,7 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                 {isAddMode ? '×' : '+'}
             </button>
             {isAddMode && (
-                <div style={{
+                <div className="add-mode-tooltip" style={{
                     position: 'absolute',
                     bottom: '100px',
                     right: '30px',
@@ -328,7 +338,7 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                     gap: '10px',
                     maxWidth: '250px'
                 }}>
-                    <div>Cliquez sur la carte pour placer le point</div>
+                    <div style={{ fontSize: '0.9rem' }}>Cliquez sur la carte pour placer le point</div>
                     <button
                         onClick={detectUserLocation}
                         disabled={isDetectingLocation}
