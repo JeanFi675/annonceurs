@@ -4,7 +4,7 @@ import { updateEntity } from '../services/api';
 import { generateAttestation } from '../utils/attestationUtils';
 import ReactDOM from 'react-dom';
 
-const EntityDetails = ({ entities, refreshEntities }) => {
+const EntityDetails = ({ entities, refreshEntities, userRole }) => {
     const { id } = useParams();
     const entity = entities.find(e => String(e.Id) === id);
     const [newComment, setNewComment] = useState('');
@@ -191,7 +191,7 @@ const EntityDetails = ({ entities, refreshEntities }) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                             <h4 style={{ margin: 0 }}>Données modifiables</h4>
                             <div style={{ display: 'flex', gap: '10px' }}>
-                                {(entity.Recette > 0 && entity.Type) && (
+                                {(entity.Recette > 0 && entity.Type && userRole === 'ADMIN') && (
                                     <button
                                         onClick={() => setShowPaymentModal(true)}
                                         style={{

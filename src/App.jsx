@@ -9,6 +9,7 @@ import { fetchEntities } from './services/api';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState(null); // 'USER' or 'ADMIN'
   const [entities, setEntities] = useState([]);
   const [filteredEntities, setFilteredEntities] = useState([]);
   const [filters, setFilters] = useState({
@@ -21,14 +22,18 @@ function App() {
   // Check if user is already authenticated (session storage)
   useEffect(() => {
     const authStatus = sessionStorage.getItem('isAuthenticated');
+    const storedRole = sessionStorage.getItem('userRole');
     if (authStatus === 'true') {
       setIsAuthenticated(true);
+      setUserRole(storedRole || 'USER'); // Default to USER for backward compatibility
     }
   }, []);
 
-  const handleLogin = () => {
+  const handleLogin = (role = 'USER') => {
     setIsAuthenticated(true);
+    setUserRole(role);
     sessionStorage.setItem('isAuthenticated', 'true');
+    sessionStorage.setItem('userRole', role);
   };
 
   const loadData = async () => {
@@ -119,7 +124,7 @@ function App() {
             </div>
           </div>
         } />
-        <Route path="/entity/:id" element={<EntityDetails entities={entities} refreshEntities={loadData} />} />
+        <Route path="/entity/:id" element={<EntityDetails entities={entities} refreshEntities={loadData} userRole={userRole} />} />
         <Route path="/history" element={<History />} />
       </Routes>
     </Router>

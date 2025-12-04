@@ -7,9 +7,13 @@ const Login = ({ onLogin }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         const correctPassword = import.meta.env.VITE_APP_PASSWORD;
+        const adminPassword = import.meta.env.VITE_APP_ADMIN_PASSWORD;
 
-        if (password === correctPassword) {
-            onLogin();
+        if (password === adminPassword) {
+            onLogin('ADMIN');
+            setError('');
+        } else if (password === correctPassword) {
+            onLogin('USER');
             setError('');
         } else {
             setError('Mot de passe incorrect');
