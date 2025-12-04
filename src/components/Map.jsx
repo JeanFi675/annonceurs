@@ -78,6 +78,12 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
+    // Comment Modal State
+    const [showCommentModal, setShowCommentModal] = useState(false);
+    const [commentEntity, setCommentEntity] = useState(null);
+    const [newComment, setNewComment] = useState('');
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
     // Extract unique referents for the dropdown
     const referentOptions = [...new Set(entities.map(e => e.Référent_partenariat_club).filter(Boolean))];
 
@@ -174,6 +180,47 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
         }
     };
 
+    // Comment Handlers
+    const handleOpenCommentModal = (entity) => {
+        setCommentEntity(entity);
+        setNewComment('');
+        setShowCommentModal(true);
+    };
+
+    const handleCloseCommentModal = () => {
+        setShowCommentModal(false);
+        setCommentEntity(null);
+    };
+
+    const handleAddComment = async () => {
+        if (!newComment.trim()) {
+            alert('Veuillez saisir un commentaire.');
+            return;
+        }
+
+        setIsSubmittingComment(true);
+        try {
+            const now = new Date();
+            const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+            const formattedComment = `[${timestamp}] ${newComment.trim()}`;
+
+            const existingComments = commentEntity.Comments || '';
+            const updatedComments = existingComments
+                ? `${existingComments}\n${formattedComment}`
+                : formattedComment;
+
+            await updateEntity(commentEntity.Id, { Comments: updatedComments });
+            alert('Commentaire ajouté !');
+            if (refreshEntities) await refreshEntities();
+            handleCloseCommentModal();
+        } catch (error) {
+            console.error("Erreur lors de l'ajout du commentaire:", error);
+            alert("Erreur lors de l'ajout du commentaire.");
+        } finally {
+            setIsSubmittingComment(false);
+        }
+    };
+
     return (
         <div style={{ height: '100%', width: '100%', border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)', position: 'relative' }}>
             <MapContainer
@@ -252,7 +299,7 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                                             <strong>Statut:</strong> {entity.Statuts}<br />
                                             <strong>Référent:</strong> {entity.Référent_partenariat_club || 'Non attribué'}
                                         </div>
-                                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {!isAssigned && (
                                                 <button
                                                     onClick={() => handleOpenAssignModal(entity)}
@@ -269,6 +316,19 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                                                 </button>
                                             )}
                                             {entity.Place && <a href={entity.Place} target="_blank" rel="noopener noreferrer">Voir sur Google Maps</a>}
+                                            <button
+                                                onClick={() => handleOpenCommentModal(entity)}
+                                                style={{
+                                                    backgroundColor: '#e0e7ff',
+                                                    color: '#4338ca',
+                                                    padding: '5px 10px',
+                                                    border: '1px solid #4338ca',
+                                                    cursor: 'pointer',
+                                                    fontWeight: 'bold'
+                                                }}
+                                            >
+                                                + Commentaire
+                                            </button>
                                             <Link to={`/entity/${entity.Id}`} style={{
                                                 backgroundColor: 'var(--brutal-black)',
                                                 color: 'var(--brutal-white)',
@@ -410,6 +470,55 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
                                 style={{ backgroundColor: 'var(--brutal-ice)', fontWeight: 'bold' }}
                             >
                                 {isSubmitting ? 'Enregistrement...' : 'Valider'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Comment Modal */}
+            {showCommentModal && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 10000
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--brutal-white)', padding: '20px',
+                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                        width: '90%', maxWidth: '400px'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Ajouter un commentaire</h3>
+                        <p style={{ fontSize: '0.9rem', color: '#666' }}>Pour : {commentEntity?.title}</p>
+
+                        <div style={{ marginBottom: '15px' }}>
+                            <textarea
+                                value={newComment}
+                                onChange={(e) => setNewComment(e.target.value)}
+                                placeholder="Saisissez votre commentaire..."
+                                style={{
+                                    width: '100%',
+                                    minHeight: '100px',
+                                    padding: '10px',
+                                    border: '2px solid black',
+                                    fontFamily: 'inherit'
+                                }}
+                            />
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button onClick={handleCloseCommentModal}>Annuler</button>
+                            <button
+                                onClick={handleAddComment}
+                                disabled={isSubmittingComment || !newComment.trim()}
+                                style={{
+                                    backgroundColor: 'var(--brutal-ice)',
+                                    fontWeight: 'bold',
+                                    opacity: isSubmittingComment || !newComment.trim() ? 0.5 : 1
+                                }}
+                            >
+                                {isSubmittingComment ? 'Envoi...' : 'Ajouter'}
                             </button>
                         </div>
                     </div>
