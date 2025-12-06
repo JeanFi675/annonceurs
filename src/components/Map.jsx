@@ -226,12 +226,15 @@ const MapComponent = ({ entities, onMapClick, newLocation, isAddMode, setIsAddMo
             <MapContainer
                 center={position}
                 zoom={12}
+                maxZoom={28}
                 style={{ height: '100%', width: '100%', cursor: isAddMode ? 'crosshair' : 'grab' }}
                 ref={mapRef}
             >
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    maxZoom={28}
+                    maxNativeZoom={19}
                 />
                 <MapEvents onMapClick={(lat, lng) => {
                     onMapClick(lat, lng);
