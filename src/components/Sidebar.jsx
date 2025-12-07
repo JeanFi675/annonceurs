@@ -55,7 +55,10 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     const [nearbyPlaces, setNearbyPlaces] = useState([]);
     const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
 
-    const location = useLocation();
+
+
+    // Toggle for secondary details
+    const [showDetails, setShowDetails] = useState(false);
     const navigate = useNavigate();
 
     // Reset filters on load if needed or handle initial state
@@ -493,36 +496,38 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                         </div>
 
                         <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Adresse</label>
-                            <input
-                                type="text"
-                                name="address"
-                                value={formData.address}
-                                onChange={handleFormChange}
-                                style={{ width: '100%' }}
-                            />
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Référent</label>
+                            <select name="Referent" value={formData.Referent} onChange={handleFormChange} style={{ width: '100%' }}>
+                                <option value="">Non attribué</option>
+                                {referentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
                         </div>
 
                         <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Téléphone</label>
-                            <input
-                                type="text"
-                                name="phoneNumber"
-                                value={formData.phoneNumber}
-                                onChange={handleFormChange}
-                                placeholder="Ex: 04 50 12 34 56"
-                                style={{ width: '100%' }}
-                            />
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Statut</label>
+                            <select name="Statuts" value={formData.Statuts} onChange={handleFormChange} style={{ width: '100%' }}>
+                                <option value="">Par défaut (À contacter)</option>
+                                {allStatusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
                         </div>
 
                         <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Lien Google Maps (Optionnel)</label>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Type</label>
+                            <select name="Type" value={formData.Type} onChange={handleFormChange} style={{ width: '100%' }}>
+                                <option value="">Sélectionner...</option>
+                                {allTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Recette (€)</label>
                             <input
-                                type="text"
-                                name="Place"
-                                value={formData.Place}
+                                type="number"
+                                name="Recette"
+                                value={formData.Recette}
                                 onChange={handleFormChange}
-                                placeholder="https://www.google.com/maps?q=..."
+                                step="0.01"
+                                min="0"
                                 style={{ width: '100%' }}
                             />
                         </div>
@@ -564,54 +569,76 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                             </button>
                         )}
 
-                        <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Site web</label>
-                            <input
-                                type="text"
-                                name="website"
-                                value={formData.website}
-                                onChange={handleFormChange}
-                                placeholder="Ex: https://www.exemple.fr"
-                                style={{ width: '100%' }}
-                            />
-                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowDetails(!showDetails)}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                marginBottom: '15px',
+                                backgroundColor: '#f0f0f0',
+                                border: '1px solid black',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                display: 'flex',
+                                justifyContent: 'space-between'
+                            }}
+                        >
+                            <span>{showDetails ? 'Masquer les détails' : 'Plus de détails (Adresse, Contact...)'}</span>
+                            <span>{showDetails ? '▲' : '▼'}</span>
+                        </button>
 
-                        <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Statut</label>
-                            <select name="Statuts" value={formData.Statuts} onChange={handleFormChange} style={{ width: '100%' }}>
-                                <option value="">Par défaut (À contacter)</option>
-                                {allStatusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
+                        {showDetails && (
+                            <div style={{ border: '1px solid #ccc', padding: '10px', marginBottom: '15px', backgroundColor: '#fafafa' }}>
+                                <div className="form-group" style={{ marginBottom: '15px' }}>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Téléphone</label>
+                                    <input
+                                        type="text"
+                                        name="phoneNumber"
+                                        value={formData.phoneNumber}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: 04 50 12 34 56"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
 
-                        <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Type</label>
-                            <select name="Type" value={formData.Type} onChange={handleFormChange} style={{ width: '100%' }}>
-                                <option value="">Sélectionner...</option>
-                                {allTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
+                                <div className="form-group" style={{ marginBottom: '15px' }}>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Adresse</label>
+                                    <input
+                                        type="text"
+                                        name="address"
+                                        value={formData.address}
+                                        onChange={handleFormChange}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
 
-                        <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Référent</label>
-                            <select name="Referent" value={formData.Referent} onChange={handleFormChange} style={{ width: '100%' }}>
-                                <option value="">Non attribué</option>
-                                {referentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
-                        </div>
+                                <div className="form-group" style={{ marginBottom: '15px' }}>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Site web</label>
+                                    <input
+                                        type="text"
+                                        name="website"
+                                        value={formData.website}
+                                        onChange={handleFormChange}
+                                        placeholder="Ex: https://www.exemple.fr"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
 
-                        <div className="form-group" style={{ marginBottom: '15px' }}>
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Recette (€)</label>
-                            <input
-                                type="number"
-                                name="Recette"
-                                value={formData.Recette}
-                                onChange={handleFormChange}
-                                step="0.01"
-                                min="0"
-                                style={{ width: '100%' }}
-                            />
-                        </div>
+                                <div className="form-group" style={{ marginBottom: '15px' }}>
+                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Lien Google Maps (Optionnel)</label>
+                                    <input
+                                        type="text"
+                                        name="Place"
+                                        value={formData.Place}
+                                        onChange={handleFormChange}
+                                        placeholder="https://www.google.com/maps?q=..."
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
 
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
