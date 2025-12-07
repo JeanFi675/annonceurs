@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom';
 import { createEntity, updateEntity } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
+import axios from 'axios';
 
 const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden, setIsSidebarHidden }) => {
     // Define all possible options from NocoDB schema
@@ -49,10 +50,17 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     const [editingId, setEditingId] = useState(null);
     const [isDetectingLocation, setIsDetectingLocation] = useState(false);
 
+    // Nearby Places Search State
+    const [showPlaceSelector, setShowPlaceSelector] = useState(false);
+    const [nearbyPlaces, setNearbyPlaces] = useState([]);
+    const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+
     const location = useLocation();
     const navigate = useNavigate();
 
-    // Effect to handle Edit Mode from EntityDetails
+    // Reset filters on load if needed or handle initial state
+    // ...
+
     useEffect(() => {
         if (location.state && location.state.editEntity) {
             const entity = location.state.editEntity;
@@ -68,69 +76,121 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 Recette: entity.Recette || '',
                 gps: entity.gps || ''
             });
-            setIsEditing(true);
             setEditingId(entity.Id);
+            setIsEditing(true);
             setShowAddModal(true);
-
-            // Clear state so it doesn't re-trigger on refresh/nav
-            navigate(location.pathname, { replace: true, state: {} });
+            // Clear state so it doesn't reopen on refresh
+            window.history.replaceState({}, document.title);
         }
     }, [location, navigate]);
 
-
-    // Reverse geocoding function
-    const reverseGeocode = async (lat, lng) => {
-        try {
-            // Using api-adresse.data.gouv.fr for better precision in France
-            const response = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${lng}&lat=${lat}`);
-            const data = await response.json();
-
-            if (data && data.features && data.features.length > 0) {
-                const feature = data.features[0];
-                const { housenumber, street, postcode, city } = feature.properties;
-
-                // Construct address
-                const parts = [];
-                if (housenumber) parts.push(housenumber);
-                if (street) parts.push(street);
-                if (postcode) parts.push(postcode);
-                if (city) parts.push(city);
-
-                const address = parts.join(' ');
-
-                if (address) {
-                    setFormData(prev => ({
-                        ...prev,
-                        address: address
-                    }));
-                }
-            }
-        } catch (e) {
-            console.error('Reverse geocoding error:', e);
-        }
-    }
-    // Effect to update form when a location is picked on map
     useEffect(() => {
         if (newLocation) {
-            const googleMapsUrl = `https://www.google.com/maps?q=${newLocation.lat},${newLocation.lng}`;
             setFormData(prev => ({
                 ...prev,
-                gps: `${newLocation.lat};${newLocation.lng}`,
-                Place: googleMapsUrl
+                gps: `${newLocation.lat};${newLocation.lng}`
             }));
 
-            // Trigger reverse geocoding
+            // Trigger address lookup immediately (User request: restore original behavior)
             reverseGeocode(newLocation.lat, newLocation.lng);
 
-            if (!showAddModal) {
-                setShowAddModal(true);
-            }
+            // Trigger nearby places search
+            fetchNearbyPlaces(newLocation.lat, newLocation.lng);
+            setShowPlaceSelector(true);
         }
     }, [newLocation]);
 
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setFilters(prev => ({ ...prev, [name]: value }));
+    const fetchNearbyPlaces = async (lat, lng) => {
+        setIsLoadingPlaces(true);
+        setNearbyPlaces([]);
+        try {
+            const query = `
+                [out:json];
+                (
+                  node(around:50,${lat},${lng})["name"];
+                  way(around:50,${lat},${lng})["name"];
+                );
+                out center;
+            `;
+            const response = await axios.get(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
+            const places = response.data.elements.filter(el => {
+                if (!el.tags || !el.tags.name) return false;
+                const { amenity, shop, tourism, leisure, craft, office } = el.tags;
+
+                // Filter: Must have a relevant type (amenity, shop, etc.)
+                if (!amenity && !shop && !tourism && !leisure && !craft && !office) return false;
+
+                // Explicit exclude parking
+                if (amenity === 'parking') return false;
+
+                return true;
+            });
+            setNearbyPlaces(places);
+        } catch (error) {
+            console.error("Error fetching nearby places:", error);
+            // Fallback or just show empty list
+        } finally {
+            setIsLoadingPlaces(false);
+        }
+    };
+
+    const formatPlaceSubtitle = (tags) => {
+        return tags.amenity || tags.shop || tags.tourism || tags.leisure || tags.craft || tags.office || 'Lieu';
+    };
+
+    const handleSelectPlace = (place) => {
+        let lat = place.lat;
+        let lon = place.lon;
+        if (!lat && place.center) {
+            lat = place.center.lat;
+            lon = place.center.lon;
+        }
+
+        const addressFromTags = place.tags['addr:street']
+            ? `${place.tags['addr:housenumber'] || ''} ${place.tags['addr:street']}, ${place.tags['addr:city'] || ''}`
+            : '';
+
+        setFormData(prev => ({
+            ...prev,
+            title: place.tags.name || '',
+            // address: We rely on the API call below, or the one from useEffect. 
+            // We do NOT overwrite it with OSM tags often missing number.
+            website: place.tags.website || '',
+            phoneNumber: place.tags.phone || place.tags['contact:phone'] || '',
+            gps: (lat && lon) ? `${lat};${lon}` : prev.gps
+        }));
+
+        // Always refresh address from API using exact POI coordinates for best precision
+        if (lat && lon) {
+            reverseGeocode(lat, lon);
+        } else if (newLocation) {
+            reverseGeocode(newLocation.lat, newLocation.lng);
+        }
+
+        setShowPlaceSelector(false);
+        setShowAddModal(true);
+    };
+
+    const handleManualAdd = () => {
+        setShowPlaceSelector(false);
+        setFormData(prev => ({
+            ...prev,
+            title: '',
+            address: '',
+            website: '',
+            phoneNumber: ''
+        }));
+
+        if (newLocation) {
+            reverseGeocode(newLocation.lat, newLocation.lng);
+        }
+
+        setShowAddModal(true);
+    };
+
+    const handleCancelPlaceSelection = () => {
+        setShowPlaceSelector(false);
+        setNewLocation(null); // Cancel the whole add action
     };
 
     const handleFormChange = (e) => {
@@ -138,6 +198,34 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleFilterChange = (e) => {
+        const { name, value } = e.target;
+        setFilters(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleCloseModal = () => {
+        setShowAddModal(false);
+        setShowPlaceSelector(false);
+        setFormToInitial();
+        setNewLocation(null);
+        setIsEditing(false);
+        setEditingId(null);
+    };
+
+    const setFormToInitial = () => {
+        setFormData({
+            Place: '',
+            title: '',
+            address: '',
+            phoneNumber: '',
+            website: '',
+            Statuts: '',
+            Type: '',
+            Referent: '',
+            Recette: '',
+            gps: ''
+        });
+    };
 
     const handleAddOrUpdate = async () => {
         if (isSubmitting) return;
@@ -198,23 +286,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 alert('Lieu ajouté !');
             }
 
-            setShowAddModal(false);
-            setFormData({
-                Place: '',
-                title: '',
-                address: '',
-                phoneNumber: '',
-                website: '',
-                Statuts: '',
-                Type: '',
-                Referent: '',
-                Recette: '',
-                gps: ''
-            });
-            setNewLocation(null); // Clear map marker
-            setIsEditing(false);
-            setEditingId(null);
-            setIsAddMode(false); // Ensure add mode is off
+            handleCloseModal();
 
             // Restore sidebar on mobile
             if (setIsSidebarHidden && window.innerWidth <= 768) {
@@ -225,45 +297,27 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
         } catch (e) {
             const errorMsg = e.response?.data?.message || e.response?.data?.msg || e.message || 'Erreur lors de l\'opération';
             alert(`Erreur : ${errorMsg}`);
+            handleCloseModal();
         } finally {
             setIsSubmitting(false);
         }
     };
 
-    const handleCloseModal = () => {
-        setShowAddModal(false);
-        setNewLocation(null); // Clear temporary marker on cancel
-        setIsEditing(false);
-        setEditingId(null);
-        setIsAddMode(false); // Ensure add mode is off
-
-        // Restore sidebar on mobile
-        if (setIsSidebarHidden && window.innerWidth <= 768) {
-            setIsSidebarHidden(false);
+    const reverseGeocode = async (lat, lng) => {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+            const data = await response.json();
+            if (data && data.address) {
+                const addr = data.address;
+                const formattedAddress = `${addr.house_number ? addr.house_number + ' ' : ''}${addr.road || ''}, ${addr.postcode || ''} ${addr.city || addr.town || addr.village || ''}`;
+                setFormData(prev => ({
+                    ...prev,
+                    address: formattedAddress.replace(/^, /, '')
+                }));
+            }
+        } catch (error) {
+            console.error("Reverse geocoding error:", error);
         }
-
-        // Reset form data on cancel to avoid stale data for next add
-        setFormData({
-            Place: '',
-            title: '',
-            address: '',
-            phoneNumber: '',
-            website: '',
-            Statuts: '',
-            Type: '',
-            Referent: '',
-            Recette: '',
-            gps: ''
-        });
-    };
-
-    const handleRelocate = () => {
-        setShowAddModal(false);
-        // Do NOT clear isEditing or editingId
-        // Do NOT clear formData
-        // Just hide modal so user can click map
-        setIsAddMode(true); // Enable map clicking
-        alert("Cliquez sur la carte pour définir la nouvelle position.");
     };
 
     const detectUserLocation = () => {
@@ -276,11 +330,11 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const { latitude, longitude } = position.coords;
-                const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
+                // const googleMapsUrl = `https://www.google.com/maps?q=${latitude},${longitude}`;
                 setFormData(prev => ({
                     ...prev,
                     gps: `${latitude};${longitude}`,
-                    Place: googleMapsUrl
+                    // Place: googleMapsUrl // We mainly want gps
                 }));
 
                 // Trigger reverse geocoding
@@ -292,17 +346,6 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             (error) => {
                 console.error('Geolocation error:', error);
                 let errorMessage = "Impossible de détecter votre position.";
-                switch (error.code) {
-                    case error.PERMISSION_DENIED:
-                        errorMessage = "Vous avez refusé l'accès à votre position.";
-                        break;
-                    case error.POSITION_UNAVAILABLE:
-                        errorMessage = "Les informations de localisation ne sont pas disponibles.";
-                        break;
-                    case error.TIMEOUT:
-                        errorMessage = "La demande de localisation a expiré.";
-                        break;
-                }
                 alert(errorMessage);
                 setIsDetectingLocation(false);
             },
@@ -335,7 +378,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 }}
             >
                 {isMapHidden ? '🗺️ Afficher la carte' : '📋 Masquer la carte'}
-            </button >
+            </button>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <label style={{ fontWeight: 'bold' }}>Recherche</label>
@@ -383,32 +426,8 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             {
                 filters.Referent && filters.Referent !== 'Non attribué' && (() => {
                     const assignedEntities = entities.filter(e => e.Référent_partenariat_club === filters.Referent);
-
-                    const getStatusRank = (status) => {
-                        switch (status) {
-                            case 'À contacter':
-                            case 'Sans réponse':
-                                return 1; // Orange
-                            case 'En discussion':
-                                return 2; // Blue
-                            case 'Confirmé (en attente de paiement)':
-                            case 'Paiement effectué':
-                                return 3; // Green
-                            case 'Refusé':
-                                return 4; // Red
-                            default:
-                                return 5;
-                        }
-                    };
-
-                    const sortedEntities = [...assignedEntities].sort((a, b) => {
-                        const rankA = getStatusRank(a.Statuts);
-                        const rankB = getStatusRank(b.Statuts);
-
-                        if (rankA !== rankB) return rankA - rankB;
-
-                        return (a.title || '').localeCompare(b.title || '');
-                    });
+                    // Simple sort
+                    const sortedEntities = [...assignedEntities].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
 
                     return sortedEntities.length > 0 && (
                         <ReferentEntitiesList entities={sortedEntities} referentName={filters.Referent} />
@@ -437,236 +456,256 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 )
             }
 
-            <div style={{ marginTop: '20px' }}>
-                <p style={{ fontSize: '0.8rem', marginTop: '5px', color: '#666' }}>
-                    Pour ajouter un lieu, activez le mode ajout (+) sur la carte et cliquez sur l'emplacement souhaité.
-                </p>
-            </div>
-
-            {
-                showAddModal && ReactDOM.createPortal(
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
-                        zIndex: 10000
-                    }}>
-                        <div style={{
-                            backgroundColor: 'var(--brutal-white)', padding: '20px',
-                            border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
-                            width: '90%', maxWidth: '500px', maxHeight: '80vh', overflowY: 'auto'
-                        }}>
-                            <h3 style={{ marginTop: 0 }}>{isEditing ? 'Modifier le lieu' : 'Ajouter un nouveau lieu'}</h3>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Nom du lieu <span style={{ color: 'red' }}>*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="title"
-                                        value={formData.title}
-                                        onChange={handleFormChange}
-                                        placeholder="Ex: Restaurant Le Gourmet"
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Adresse
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="address"
-                                        value={formData.address}
-                                        onChange={handleFormChange}
-                                        placeholder="Ex: 123 Rue de la Paix, 74000 Annecy"
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Téléphone
-                                    </label>
-                                    <input
-                                        type="tel"
-                                        name="phoneNumber"
-                                        value={formData.phoneNumber}
-                                        onChange={handleFormChange}
-                                        placeholder="Ex: 04 50 12 34 56"
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Lien Google Maps (Optionnel)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="Place"
-                                        value={formData.Place}
-                                        onChange={handleFormChange}
-                                        placeholder="https://maps.app.goo.gl/..."
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Coordonnées GPS <span style={{ color: 'red' }}>*</span>
-                                    </label>
-                                    <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            name="gps"
-                                            value={formData.gps}
-                                            readOnly
-                                            placeholder="Cliquez sur la carte pour définir la position"
-                                            style={{ width: '100%', backgroundColor: '#f0f0f0', cursor: 'not-allowed' }}
-                                        />
-                                        {formData.gps && <span style={{ color: 'green' }}>✓</span>}
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
-                                        {isEditing && (
-                                            <button
-                                                onClick={handleRelocate}
-                                                style={{
-                                                    flex: 1,
-                                                    fontSize: '0.8rem',
-                                                    padding: '5px',
-                                                    backgroundColor: '#ffeb3b',
-                                                    border: '1px solid black',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                📍 Replacer sur la carte
-                                            </button>
-                                        )}
-                                        <button
-                                            onClick={detectUserLocation}
-                                            disabled={isDetectingLocation}
-                                            style={{
-                                                flex: 1,
-                                                fontSize: '0.8rem',
-                                                padding: '5px',
-                                                backgroundColor: isDetectingLocation ? '#ccc' : 'var(--brutal-ice)',
-                                                border: '1px solid black',
-                                                cursor: isDetectingLocation ? 'not-allowed' : 'pointer',
-                                                fontWeight: 'bold'
-                                            }}
-                                        >
-                                            {isDetectingLocation ? '📍 Détection...' : '📍 Me localiser'}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Site web
-                                    </label>
-                                    <input
-                                        type="url"
-                                        name="website"
-                                        value={formData.website}
-                                        onChange={handleFormChange}
-                                        placeholder="Ex: https://www.exemple.fr"
-                                        style={{ width: '100%' }}
-                                    />
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Statut
-                                    </label>
-                                    <select
-                                        name="Statuts"
-                                        value={formData.Statuts}
-                                        onChange={handleFormChange}
-                                        style={{ width: '100%' }}
-                                    >
-                                        <option value="">Par défaut (À contacter)</option>
-                                        {statusOptions.map(opt => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Type
-                                    </label>
-                                    <select
-                                        name="Type"
-                                        value={formData.Type}
-                                        onChange={handleFormChange}
-                                        style={{ width: '100%' }}
-                                    >
-                                        <option value="">Non spécifié</option>
-                                        {typeOptions.map(opt => (
-                                            <option key={opt} value={opt}>{opt}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Référent
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="Referent"
-                                        value={formData.Referent}
-                                        onChange={handleFormChange}
-                                        placeholder="Sélectionnez ou tapez un nom"
-                                        list="referent-options"
-                                        style={{ width: '100%' }}
-                                    />
-                                    <datalist id="referent-options">
-                                        {referentOptions.map(opt => (
-                                            <option key={opt} value={opt} />
-                                        ))}
-                                    </datalist>
-                                </div>
-
-                                <div>
-                                    <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>
-                                        Recette (€)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="Recette"
-                                        value={formData.Recette}
-                                        onChange={handleFormChange}
-                                        placeholder="Ex: 500"
-                                        style={{ width: '100%' }}
-                                        step="0.01"
-                                        min="0"
-                                    />
-                                </div>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
-                                <button onClick={handleCloseModal}>Annuler</button>
-                                <button onClick={handleAddOrUpdate} disabled={isSubmitting} style={{ backgroundColor: 'var(--brutal-ice)' }}>
-                                    {isSubmitting ? (isEditing ? 'Modification...' : 'Ajout...') : (isEditing ? 'Enregistrer' : 'Ajouter')}
-                                </button>
-                            </div>
-                        </div>
-                    </div>,
-                    document.body
-                )
-            }
-
             <div style={{ marginTop: 'auto' }}>
                 <p style={{ fontSize: '0.8rem' }}>
                     <strong>Total:</strong> {entities.length} entités <br />
                     <strong>Attribués:</strong> {entities.filter(e => e.Référent_partenariat_club).length} / {entities.length}
                 </p>
             </div>
+
+            {/* Add / Edit Modal */}
+            {showAddModal && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 10000
+                }}>
+                    <div className="add-modal" style={{
+                        backgroundColor: 'var(--brutal-white)', padding: '20px',
+                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                        width: '90%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto'
+                    }}>
+                        <h2 style={{ fontSize: '1.5rem', marginBottom: '20px', textTransform: 'uppercase' }}>
+                            {isEditing ? 'MODIFIER LE LIEU' : 'AJOUTER UN NOUVEAU LIEU'}
+                        </h2>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Nom du lieu *</label>
+                            <input
+                                type="text"
+                                name="title"
+                                value={formData.title}
+                                onChange={handleFormChange}
+                                required
+                                placeholder="Ex: Restaurant Le Gourmet"
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Adresse</label>
+                            <input
+                                type="text"
+                                name="address"
+                                value={formData.address}
+                                onChange={handleFormChange}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Téléphone</label>
+                            <input
+                                type="text"
+                                name="phoneNumber"
+                                value={formData.phoneNumber}
+                                onChange={handleFormChange}
+                                placeholder="Ex: 04 50 12 34 56"
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Lien Google Maps (Optionnel)</label>
+                            <input
+                                type="text"
+                                name="Place"
+                                value={formData.Place}
+                                onChange={handleFormChange}
+                                placeholder="https://www.google.com/maps?q=..."
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Coordonnées GPS *</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                <input
+                                    type="text"
+                                    name="gps"
+                                    value={formData.gps || ''}
+                                    onChange={handleFormChange}
+                                    readOnly
+                                    style={{ width: '100%', backgroundColor: '#eee' }}
+                                />
+                                {formData.gps && <span style={{ color: 'green', fontSize: '1.2rem' }}>✓</span>}
+                            </div>
+                        </div>
+
+                        {!isEditing && (
+                            <button
+                                type="button"
+                                onClick={detectUserLocation}
+                                disabled={isDetectingLocation}
+                                style={{
+                                    marginBottom: '15px',
+                                    fontSize: '0.9rem',
+                                    width: '100%',
+                                    backgroundColor: 'var(--brutal-ice)',
+                                    fontWeight: 'bold',
+                                    display: 'flex',
+                                    justifyContent: 'center',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}
+                            >
+                                <span style={{ fontSize: '1.2rem' }}>📍</span>
+                                {isDetectingLocation ? 'Localisation...' : 'Me localiser'}
+                            </button>
+                        )}
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Site web</label>
+                            <input
+                                type="text"
+                                name="website"
+                                value={formData.website}
+                                onChange={handleFormChange}
+                                placeholder="Ex: https://www.exemple.fr"
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Statut</label>
+                            <select name="Statuts" value={formData.Statuts} onChange={handleFormChange} style={{ width: '100%' }}>
+                                <option value="">Par défaut (À contacter)</option>
+                                {allStatusOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Type</label>
+                            <select name="Type" value={formData.Type} onChange={handleFormChange} style={{ width: '100%' }}>
+                                <option value="">Sélectionner...</option>
+                                {allTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Référent</label>
+                            <select name="Referent" value={formData.Referent} onChange={handleFormChange} style={{ width: '100%' }}>
+                                <option value="">Non attribué</option>
+                                {referentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                        </div>
+
+                        <div className="form-group" style={{ marginBottom: '15px' }}>
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Recette (€)</label>
+                            <input
+                                type="number"
+                                name="Recette"
+                                value={formData.Recette}
+                                onChange={handleFormChange}
+                                step="0.01"
+                                min="0"
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '20px' }}>
+                            <button onClick={handleCloseModal} style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>Annuler</button>
+                            <button onClick={handleAddOrUpdate} disabled={isSubmitting} style={{ backgroundColor: 'var(--brutal-ice)', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                                {isSubmitting ? (isEditing ? 'Modification...' : 'Ajout...') : (isEditing ? 'Enregistrer' : 'Ajouter')}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Place Selector Modal - Kept as requested for functionality */}
+            {showPlaceSelector && ReactDOM.createPortal(
+                <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                    backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    zIndex: 10001
+                }}>
+                    <div style={{
+                        backgroundColor: 'var(--brutal-white)', padding: '20px',
+                        border: 'var(--brutal-border)', boxShadow: 'var(--brutal-shadow)',
+                        width: '90%', maxWidth: '400px', maxHeight: '80vh', overflowY: 'auto'
+                    }}>
+                        <h3 style={{ marginTop: 0 }}>Lieux à proximité</h3>
+                        <p style={{ fontSize: '0.9rem', color: '#666' }}>
+                            Sélectionnez un lieu pour préremplir la fiche, ou créez-le manuellement.
+                        </p>
+
+                        {isLoadingPlaces ? (
+                            <div style={{ textAlign: 'center', padding: '20px' }}>
+                                Chargement des lieux... (Overpass API)
+                            </div>
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                                {nearbyPlaces.length > 0 ? (
+                                    nearbyPlaces.map((place, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => handleSelectPlace(place)}
+                                            style={{
+                                                padding: '10px',
+                                                textAlign: 'left',
+                                                border: '1px solid #ccc',
+                                                backgroundColor: 'white',
+                                                cursor: 'pointer',
+                                                borderRadius: '4px'
+                                            }}
+                                        >
+                                            <strong>{place.tags.name}</strong>
+                                            <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                                                {formatPlaceSubtitle(place.tags)}
+                                            </div>
+                                        </button>
+                                    ))
+                                ) : (
+                                    <div style={{ padding: '10px', textAlign: 'center', color: '#666', fontStyle: 'italic' }}>
+                                        Aucun lieu commercial identifié à proximité immédiate.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        <div style={{ borderTop: '1px solid #ccc', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <button
+                                onClick={handleManualAdd}
+                                style={{
+                                    padding: '10px',
+                                    backgroundColor: 'var(--brutal-ice)',
+                                    border: '2px solid black',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                ✍️ Pas dans la liste ? Créer manuellement
+                            </button>
+                            <button
+                                onClick={handleCancelPlaceSelection}
+                                style={{
+                                    padding: '8px',
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    textDecoration: 'underline',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                Annuler
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
         </>
     );
 };
