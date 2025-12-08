@@ -4,6 +4,7 @@ import MapComponent from './components/Map';
 import Sidebar from './components/Sidebar';
 import EntityDetails from './pages/EntityDetails';
 import History from './pages/History';
+import Dashboard from './pages/Dashboard';
 import Login from './components/Login';
 import { fetchEntities } from './services/api';
 
@@ -109,6 +110,7 @@ function App() {
                 isMapHidden={isMapHidden}
                 setIsMapHidden={setIsMapHidden}
                 setIsSidebarHidden={setIsSidebarHidden}
+                userRole={userRole}
               />
             </div>
             <div className={`map-container ${isSidebarHidden ? 'map-fullscreen' : ''} ${isMapHidden ? 'map-hidden' : ''}`}>
@@ -126,6 +128,7 @@ function App() {
         } />
         <Route path="/entity/:id" element={<EntityDetails entities={entities} refreshEntities={loadData} userRole={userRole} />} />
         <Route path="/history" element={<History />} />
+        <Route path="/dashboard" element={<Dashboard entities={entities} />} />
       </Routes>
     </Router>
   );

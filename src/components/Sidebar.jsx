@@ -5,7 +5,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
 import axios from 'axios';
 
-const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden, setIsSidebarHidden }) => {
+const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden, setIsSidebarHidden, userRole }) => {
     // Define all possible options from NocoDB schema
     const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
     const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
@@ -364,9 +364,16 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
         <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Filtres</h2>
-                <Link to="/history" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'var(--brutal-black)' }}>
-                    Historique
-                </Link>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {userRole === 'ADMIN' && (
+                        <Link to="/dashboard" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'red', fontWeight: 'bold' }}>
+                            Dashboard
+                        </Link>
+                    )}
+                    <Link to="/history" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'var(--brutal-black)' }}>
+                        Historique
+                    </Link>
+                </div>
             </div>
 
             {/* Mobile Map Toggle */}
