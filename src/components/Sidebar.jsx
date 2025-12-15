@@ -77,10 +77,10 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
         const revenue = (e.Recette && parseFloat(e.Recette) > 0) ? parseFloat(e.Recette) : 0;
 
-        // Update global total revenue (excluding Tombola if requested? "Juste le nombre de lieu" might imply visual only. 
-        // Usually revenue is revenue. I will Add to totalRevenue regardless, unless it confuses the display. 
-        // Use standard logic: Money is Money.)
-        totalRevenue += revenue;
+        // Update global total revenue (excluding Tombola)
+        if (!type.includes('Tombola')) {
+            totalRevenue += revenue;
+        }
 
         // Bucket Logic
         if (mainGroupTypes.includes(type)) {
