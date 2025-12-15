@@ -60,6 +60,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     // Toggle for secondary details
     const [showDetails, setShowDetails] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Reset filters on load if needed or handle initial state
     // ...
