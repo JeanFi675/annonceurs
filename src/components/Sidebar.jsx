@@ -1,115 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 // ... (previous imports)
-import { createEntity, updateEntity, createTrackingRecord } from '../services/api';
-
-// ...
-
-const handleAddOrUpdate = async () => {
-    if (isSubmitting) return;
-
-    if (!formData.gps) {
-        alert('Il est impératif d\'avoir un point GPS. Veuillez géolocaliser l\'adresse ou cliquer sur la carte.');
-        return;
-    }
-    if (!formData.title) {
-        alert('Le nom du lieu est obligatoire.');
-        return;
-    }
-
-    setIsSubmitting(true);
-    try {
-        const entityData = {
-            title: formData.title,
-            Statuts: formData.Statuts || "À contacter",
-            gps: formData.gps
-        };
-
-        // Add optional fields only if they have values
-        if (formData.Place) entityData.Place = formData.Place;
-        if (formData.address) entityData.address = formData.address;
-        if (formData.phoneNumber) entityData.phoneNumber = formData.phoneNumber;
-        if (formData.website) entityData.website = formData.website;
-        if (formData.Type) entityData.Type = formData.Type;
-        if (formData.Referent) entityData.Référent_partenariat_club = formData.Referent;
-        if (formData.Recette) entityData.Recette = parseFloat(formData.Recette);
-
-        if (isEditing && editingId) {
-            // Automatic Logging
-            const originalEntity = entities.find(e => e.Id === editingId);
-            if (originalEntity) {
-                const changes = [];
-                if (entityData.Statuts !== originalEntity.Statuts) changes.push(`Statut: ${originalEntity.Statuts || 'Vide'} -> ${entityData.Statuts}`);
-                if (entityData.Type !== originalEntity.Type) changes.push(`Type: ${originalEntity.Type || 'Vide'} -> ${entityData.Type}`);
-                if (entityData.Recette !== originalEntity.Recette) changes.push(`Recette: ${originalEntity.Recette || 0} -> ${entityData.Recette}`);
-
-                if (changes.length > 0) {
-                    const now = new Date();
-                    const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-                    const logMessage = `[${timestamp}] Modification système:\n${changes.join('\n')}`;
-                    const existingComments = originalEntity.Comments || '';
-                    entityData.Comments = existingComments ? `${existingComments}\n${logMessage}` : logMessage;
-                }
-            }
-
-            await updateEntity(editingId, entityData);
-
-            // Attempt to create tracking if Type is set (and wasn't before, or just ensuring it exists)
-            // Note: Ideally we check if it exists, but for now we rely on the Suivi page lazy load or user action.
-            // However, user asked for "modification" trigger. 
-            // Creating blindly might duplicate if logic isn't robust, so we proceed with caution:
-            // We ONLY do it for CREATION below. For modification, we assume the user manages it via Suivi.
-
-            alert('Lieu modifié avec succès !');
-        } else {
-            // Automatic Logging for Creation
-            const now = new Date();
-            const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
-            entityData.Comments = `[${timestamp}] Création du lieu`;
-
-            const createdEntity = await createEntity(entityData);
-
-            // --- AUTO TRACKING CREATION ---
-            if (createdEntity && createdEntity.Id && entityData.Type) {
-                // Try to init tracking record
-                try {
-                    console.log("Auto-creating tracking record for:", entityData.Type);
-                    await createTrackingRecord(entityData.Type, {
-                        Link_Annonceur: createdEntity.Id,
-                        Titre: createdEntity.title || 'Suivi'
-                    });
-                } catch (trackError) {
-                    console.error("Auto-tracking failed (non-blocking):", trackError);
-                }
-            }
-
-            alert('Lieu ajouté !');
-        }
-
-        handleCloseModal();
-
-        // Restore sidebar on mobile
-        if (setIsSidebarHidden && window.innerWidth <= 768) {
-            setIsSidebarHidden(false);
-        }
-
-        if (refreshEntities) refreshEntities();
-    } catch (e) {
-        const errorMsg = e.response?.data?.message || e.response?.data?.msg || e.message || 'Erreur lors de l\'opération';
-        alert(`Erreur : ${errorMsg}`);
-        handleCloseModal();
-    } finally {
-        setIsSubmitting(false);
-    }
-};
+import { createEntity, updateEntity, createTrackingRecord, fetchTrackingData, deleteTrackingRecord, LINK_FIELDS, linkRecord, getLinkedRecords } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
 import axios from 'axios';
 
+// ...
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, setNewLocation, setIsAddMode, isMapHidden, setIsMapHidden, setIsSidebarHidden, userRole }) => {
     // Define all possible options from NocoDB schema
     const allStatusOptions = ['À contacter', 'En discussion', 'Confirmé (en attente de paiement)', 'Paiement effectué', 'Refusé', 'Sans réponse'];
-    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
+    const allTypeOptions = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand', 'Subvention'];
 
     // Extract unique values for filters (merge with schema options)
     const statusOptions = [...new Set([...allStatusOptions, ...entities.map(e => e.Statuts).filter(Boolean)])];
@@ -119,19 +49,66 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     const referentOptions = [...new Set(entities.map(e => e.Référent_partenariat_club).filter(Boolean))];
 
     // Calculate Financial Summary
-    const entitiesWithRevenue = entities.filter(e => e.Recette && parseFloat(e.Recette) > 0);
-    const totalRevenue = entitiesWithRevenue.reduce((sum, e) => sum + parseFloat(e.Recette), 0);
+    // Calculate Financial Summary
+    // We want to track revenue but also specific counts (like Tombola) even if 0 revenue.
+    // However, for the main revenue summary, we usually care about money.
+    // User requested "Tombola avec juste le nombre de lieu" implying count is key there.
+    // Logic:
+    // 1. Main Group: Encart Pub, Mécénat, Partenaires (Individual lines + Subtotal)
+    // 2. Others (revenue > 0)
+    // 3. Subvention
+    // 4. Tombola (Count only)
 
-    // Group revenue by Type
-    const revenueByType = entitiesWithRevenue.reduce((acc, e) => {
-        const type = e.Type || 'Non spécifié';
-        if (!acc[type]) {
-            acc[type] = { amount: 0, count: 0 };
+    const mainGroupTypes = ['Encart Pub', 'Mécénat', 'Partenaires'];
+    const tombolaType = 'Tombola (Lots)'; // Or check includes 'Tombola'
+
+    const financialStats = {
+        mainGroup: { byType: {}, total: 0, count: 0 },
+        subvention: { byType: {}, total: 0, count: 0 }, // Should be just one, but keeping structure generic
+        others: { byType: {}, total: 0, count: 0 },
+        tombola: { count: 0 } // Just count for Tombola
+    };
+
+    let totalRevenue = 0;
+
+    entities.forEach(e => {
+        const type = e.Type;
+        if (!type) return;
+
+        const revenue = (e.Recette && parseFloat(e.Recette) > 0) ? parseFloat(e.Recette) : 0;
+
+        // Update global total revenue (excluding Tombola if requested? "Juste le nombre de lieu" might imply visual only. 
+        // Usually revenue is revenue. I will Add to totalRevenue regardless, unless it confuses the display. 
+        // Use standard logic: Money is Money.)
+        totalRevenue += revenue;
+
+        // Bucket Logic
+        if (mainGroupTypes.includes(type)) {
+            if (!financialStats.mainGroup.byType[type]) financialStats.mainGroup.byType[type] = { amount: 0, count: 0 };
+            financialStats.mainGroup.byType[type].amount += revenue;
+            financialStats.mainGroup.byType[type].count += 1;
+            financialStats.mainGroup.total += revenue;
+            financialStats.mainGroup.count += 1;
+        } else if (type === 'Subvention') {
+            if (!financialStats.subvention.byType[type]) financialStats.subvention.byType[type] = { amount: 0, count: 0 };
+            financialStats.subvention.byType[type].amount += revenue;
+            financialStats.subvention.byType[type].count += 1;
+            financialStats.subvention.total += revenue;
+            financialStats.subvention.count += 1;
+        } else if (type.includes('Tombola')) {
+            financialStats.tombola.count += 1;
+            // distinct from others? Yes
+        } else {
+            // Others - only track if has revenue (classic behavior) to avoid clutter?
+            if (revenue > 0) {
+                if (!financialStats.others.byType[type]) financialStats.others.byType[type] = { amount: 0, count: 0 };
+                financialStats.others.byType[type].amount += revenue;
+                financialStats.others.byType[type].count += 1;
+                financialStats.others.total += revenue;
+                financialStats.others.count += 1;
+            }
         }
-        acc[type].amount += parseFloat(e.Recette);
-        acc[type].count += 1;
-        return acc;
-    }, {});
+    });
 
     const [showAddModal, setShowAddModal] = useState(false);
     const [formData, setFormData] = useState({
@@ -380,6 +357,58 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 }
 
                 await updateEntity(editingId, entityData);
+
+                // --- ROBUST CONSISTENCY CHECK (Fetching real state from API) ---
+                // We do NOT trust originalEntity for links as it might link to shallow objects or count.
+                // We fetch the actual linked records from NocoDB to be sure.
+                try {
+                    const currentType = entityData.Type;
+                    console.log(`[Link Manager] Verifying links for type: ${currentType}`);
+
+                    const LINK_COLUMNS = [
+                        { col: 'EncartPub', typeMatch: ['Encart Pub'], linkFieldId: 'cyl94cin0jr44gs', tableType: 'Encart Pub' },
+                        { col: 'Tombola', typeMatch: ['Tombola', 'Tombola (Lots)'], linkFieldId: 'cng8iswsgb2q60o', tableType: 'Tombola (Lots)' },
+                        { col: 'Partenaires', typeMatch: ['Partenaires'], linkFieldId: 'calv2cwh9dp92bi', tableType: 'Partenaires' },
+                        { col: 'Mecenat', typeMatch: ['Mécénat'], linkFieldId: 'cfjurax08wyyvyr', tableType: 'Mécénat' },
+                        { col: 'Stand', typeMatch: ['Stand'], linkFieldId: 'csvaotykbbr6jed', tableType: 'Stand' }
+                    ];
+
+                    for (const config of LINK_COLUMNS) {
+                        const shouldBeActive = config.typeMatch.includes(currentType);
+
+                        // Fetch ACTUAL linked records
+                        const linkedRecords = await getLinkedRecords(config.linkFieldId, editingId);
+                        const hasLinks = linkedRecords.length > 0;
+
+                        if (shouldBeActive) {
+                            if (hasLinks) {
+                                console.log(`[Link Manager] OK: Found ${linkedRecords.length} record(s) in ${config.col}`);
+                            } else {
+                                console.log(`[Link Manager] MISSING: Creating link for ${config.col}...`);
+                                try {
+                                    const newRec = await createTrackingRecord(config.tableType, { Titre: entityData.title });
+                                    if (newRec?.Id) {
+                                        await linkRecord(config.linkFieldId, editingId, newRec.Id);
+                                        console.log(`[Link Manager] Created & Linked ${config.col}`);
+                                    }
+                                } catch (e) { console.error(e); alert(`Erreur creation ${config.col}`); }
+                            }
+                        } else {
+                            // CLEANUP: Must match 0
+                            if (hasLinks) {
+                                console.log(`[Link Manager] CLEANUP: Found ${linkedRecords.length} unauthorized records in ${config.col}. Deleting...`);
+                                for (const rec of linkedRecords) {
+                                    try {
+                                        if (rec.Id) await deleteTrackingRecord(config.tableType, rec.Id);
+                                    } catch (e) { console.error(`Failed deletion ${config.col}`, e); }
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Consistency Check Fatal Error:", err);
+                }
+
                 alert('Lieu modifié avec succès !');
             } else {
                 // Automatic Logging for Creation
@@ -387,7 +416,25 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
                 entityData.Comments = `[${timestamp}] Création du lieu`;
 
-                await createEntity(entityData);
+                const created = await createEntity(entityData);
+
+                // Automatic Link Creation for New Entity
+                if (created && created.Id && entityData.Type) {
+                    try {
+                        const targetFieldId = LINK_FIELDS[entityData.Type];
+                        if (targetFieldId) {
+                            console.log(`[Link Manager - Create] Creating initial link for ${entityData.Type}`);
+                            const newRecord = await createTrackingRecord(entityData.Type, {
+                                Titre: entityData.title
+                            });
+                            if (newRecord && newRecord.Id) {
+                                await linkRecord(targetFieldId, created.Id, newRecord.Id);
+                                console.log(`[Link Manager - Create] Success: Linked.`);
+                            }
+                        }
+                    } catch (e) { console.log("Auto-link error:", e); }
+                }
+
                 alert('Lieu ajouté !');
             }
 
@@ -554,20 +601,79 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
             {/* Financial Summary Section */}
             {
-                totalRevenue > 0 && (
-                    <div style={{ marginTop: '20px', borderTop: '2px solid black', paddingTop: '10px' }}>
-                        <h3 style={{ fontSize: '1.2rem', marginBottom: '10px' }}>Suivi Financier</h3>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', marginBottom: '5px' }}>
-                            <span>Total Recettes:</span>
+                (totalRevenue > 0 || financialStats.tombola.count > 0) && (
+                    <div style={{ marginTop: '30px', borderTop: '4px solid black', paddingTop: '15px' }}>
+                        <h3 style={{ fontSize: '1.4rem', marginBottom: '15px', textTransform: 'uppercase', fontWeight: 900 }}>Suivi Financier</h3>
+
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontWeight: 'bold',
+                            marginBottom: '20px',
+                            backgroundColor: 'var(--brutal-yellow)', // Highlight total
+                            padding: '10px',
+                            border: '2px solid black'
+                        }}>
+                            <span style={{ textTransform: 'uppercase' }}>Total Recettes</span>
                             <span>{totalRevenue.toLocaleString('fr-FR')} €</span>
                         </div>
+
                         <div style={{ fontSize: '0.9rem' }}>
-                            {Object.entries(revenueByType).map(([type, data]) => (
-                                <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
-                                    <span>{type} ({data.count}):</span>
-                                    <span>{data.amount.toLocaleString('fr-FR')} €</span>
+                            {/* Main Group: Encart, Mécénat, Partenaires */}
+                            {financialStats.mainGroup.count > 0 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', textTransform: 'uppercase', color: 'black', borderBottom: '2px solid black', display: 'inline-block' }}>Partenariats</h4>
+                                    {Object.entries(financialStats.mainGroup.byType).map(([type, data]) => (
+                                        <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                            <span>{type} ({data.count})</span>
+                                            <span>{data.amount.toLocaleString('fr-FR')} €</span>
+                                        </div>
+                                    ))}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '5px', paddingTop: '5px', borderTop: '1px solid black', fontWeight: 'bold' }}>
+                                        <span>Sous-total</span>
+                                        <span>{financialStats.mainGroup.total.toLocaleString('fr-FR')} €</span>
+                                    </div>
                                 </div>
-                            ))}
+                            )}
+
+                            {/* Others */}
+                            {financialStats.others.count > 0 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', textTransform: 'uppercase', color: 'black', borderBottom: '2px solid black', display: 'inline-block' }}>Divers</h4>
+                                    {Object.entries(financialStats.others.byType).map(([type, data]) => (
+                                        <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                            <span>{type} ({data.count})</span>
+                                            <span>{data.amount.toLocaleString('fr-FR')} €</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Subvention - Added specifically */}
+                            {financialStats.subvention.count > 0 && (
+                                <div style={{ marginBottom: '20px' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', textTransform: 'uppercase', color: 'black', borderBottom: '2px solid black', display: 'inline-block' }}>Subventions</h4>
+                                    {Object.entries(financialStats.subvention.byType).map(([type, data]) => (
+                                        <div key={type} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                                            <span>{type} ({data.count})</span>
+                                            <span>{data.amount.toLocaleString('fr-FR')} €</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Tombola - Count only */}
+                            {financialStats.tombola.count > 0 && (
+                                <div style={{ marginTop: '10px', paddingTop: '10px' }}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '1rem', textTransform: 'uppercase', color: 'black', borderBottom: '2px solid black', display: 'inline-block' }}>Tombola</h4>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <span style={{ fontWeight: 'bold' }}>Participation</span>
+                                        <span style={{ backgroundColor: 'black', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                                            {financialStats.tombola.count} lieux
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 )
