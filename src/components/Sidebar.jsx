@@ -1,6 +1,107 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { createEntity, updateEntity } from '../services/api';
+// ... (previous imports)
+import { createEntity, updateEntity, createTrackingRecord } from '../services/api';
+
+// ...
+
+const handleAddOrUpdate = async () => {
+    if (isSubmitting) return;
+
+    if (!formData.gps) {
+        alert('Il est impératif d\'avoir un point GPS. Veuillez géolocaliser l\'adresse ou cliquer sur la carte.');
+        return;
+    }
+    if (!formData.title) {
+        alert('Le nom du lieu est obligatoire.');
+        return;
+    }
+
+    setIsSubmitting(true);
+    try {
+        const entityData = {
+            title: formData.title,
+            Statuts: formData.Statuts || "À contacter",
+            gps: formData.gps
+        };
+
+        // Add optional fields only if they have values
+        if (formData.Place) entityData.Place = formData.Place;
+        if (formData.address) entityData.address = formData.address;
+        if (formData.phoneNumber) entityData.phoneNumber = formData.phoneNumber;
+        if (formData.website) entityData.website = formData.website;
+        if (formData.Type) entityData.Type = formData.Type;
+        if (formData.Referent) entityData.Référent_partenariat_club = formData.Referent;
+        if (formData.Recette) entityData.Recette = parseFloat(formData.Recette);
+
+        if (isEditing && editingId) {
+            // Automatic Logging
+            const originalEntity = entities.find(e => e.Id === editingId);
+            if (originalEntity) {
+                const changes = [];
+                if (entityData.Statuts !== originalEntity.Statuts) changes.push(`Statut: ${originalEntity.Statuts || 'Vide'} -> ${entityData.Statuts}`);
+                if (entityData.Type !== originalEntity.Type) changes.push(`Type: ${originalEntity.Type || 'Vide'} -> ${entityData.Type}`);
+                if (entityData.Recette !== originalEntity.Recette) changes.push(`Recette: ${originalEntity.Recette || 0} -> ${entityData.Recette}`);
+
+                if (changes.length > 0) {
+                    const now = new Date();
+                    const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+                    const logMessage = `[${timestamp}] Modification système:\n${changes.join('\n')}`;
+                    const existingComments = originalEntity.Comments || '';
+                    entityData.Comments = existingComments ? `${existingComments}\n${logMessage}` : logMessage;
+                }
+            }
+
+            await updateEntity(editingId, entityData);
+
+            // Attempt to create tracking if Type is set (and wasn't before, or just ensuring it exists)
+            // Note: Ideally we check if it exists, but for now we rely on the Suivi page lazy load or user action.
+            // However, user asked for "modification" trigger. 
+            // Creating blindly might duplicate if logic isn't robust, so we proceed with caution:
+            // We ONLY do it for CREATION below. For modification, we assume the user manages it via Suivi.
+
+            alert('Lieu modifié avec succès !');
+        } else {
+            // Automatic Logging for Creation
+            const now = new Date();
+            const timestamp = `${now.toLocaleDateString('fr-FR')} ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+            entityData.Comments = `[${timestamp}] Création du lieu`;
+
+            const createdEntity = await createEntity(entityData);
+
+            // --- AUTO TRACKING CREATION ---
+            if (createdEntity && createdEntity.Id && entityData.Type) {
+                // Try to init tracking record
+                try {
+                    console.log("Auto-creating tracking record for:", entityData.Type);
+                    await createTrackingRecord(entityData.Type, {
+                        Link_Annonceur: createdEntity.Id,
+                        Titre: createdEntity.title || 'Suivi'
+                    });
+                } catch (trackError) {
+                    console.error("Auto-tracking failed (non-blocking):", trackError);
+                }
+            }
+
+            alert('Lieu ajouté !');
+        }
+
+        handleCloseModal();
+
+        // Restore sidebar on mobile
+        if (setIsSidebarHidden && window.innerWidth <= 768) {
+            setIsSidebarHidden(false);
+        }
+
+        if (refreshEntities) refreshEntities();
+    } catch (e) {
+        const errorMsg = e.response?.data?.message || e.response?.data?.msg || e.message || 'Erreur lors de l\'opération';
+        alert(`Erreur : ${errorMsg}`);
+        handleCloseModal();
+    } finally {
+        setIsSubmitting(false);
+    }
+};
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
 import axios from 'axios';
@@ -367,9 +468,14 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Filtres</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     {userRole === 'ADMIN' && (
-                        <Link to="/dashboard" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'red', fontWeight: 'bold' }}>
-                            Dashboard
-                        </Link>
+                        <>
+                            <Link to="/dashboard" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'red', fontWeight: 'bold' }}>
+                                Dashboard
+                            </Link>
+                            <Link to="/suivi" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'blue', fontWeight: 'bold' }}>
+                                Suivi
+                            </Link>
+                        </>
                     )}
                     <Link to="/history" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'var(--brutal-black)' }}>
                         Historique

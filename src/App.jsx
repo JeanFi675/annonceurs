@@ -5,6 +5,7 @@ import Sidebar from './components/Sidebar';
 import EntityDetails from './pages/EntityDetails';
 import History from './pages/History';
 import Dashboard from './pages/Dashboard';
+import SuiviAvancement from './pages/SuiviAvancement';
 import Login from './components/Login';
 import { fetchEntities } from './services/api';
 
@@ -129,6 +130,7 @@ function App() {
         <Route path="/entity/:id" element={<EntityDetails entities={entities} refreshEntities={loadData} userRole={userRole} />} />
         <Route path="/history" element={<History />} />
         <Route path="/dashboard" element={<Dashboard entities={entities} />} />
+        <Route path="/suivi" element={<SuiviAvancement entities={entities} userRole={userRole} />} />
       </Routes>
     </Router>
   );

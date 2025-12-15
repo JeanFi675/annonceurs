@@ -27,8 +27,8 @@ body {
   color: var(--brutal-black);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
-  /* Prevent body scroll, handle in app-container */
+  overflow-y: auto;
+  /* Allow body scroll */
 }
 
 h1,
