@@ -334,9 +334,18 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             if (formData.address) entityData.address = formData.address;
             if (formData.phoneNumber) entityData.phoneNumber = formData.phoneNumber;
             if (formData.website) entityData.website = formData.website;
-            if (formData.Type) entityData.Type = formData.Type;
+            if (formData.website) entityData.website = formData.website;
+
+            // Allow clearing Type and Recette (sending null if empty)
+            entityData.Type = formData.Type || null;
+
             if (formData.Referent) entityData.Référent_partenariat_club = formData.Referent;
-            if (formData.Recette) entityData.Recette = parseFloat(formData.Recette);
+
+            if (formData.Recette === '' || formData.Recette === null || formData.Recette === undefined) {
+                entityData.Recette = null;
+            } else {
+                entityData.Recette = parseFloat(formData.Recette);
+            }
 
             if (isEditing && editingId) {
                 // Automatic Logging
