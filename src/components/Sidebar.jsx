@@ -59,7 +59,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     // 3. Subvention
     // 4. Tombola (Count only)
 
-    const mainGroupTypes = ['Encart Pub', 'Mécénat', 'Partenaires'];
+    const mainGroupTypes = ['Encart Pub', 'Mécénat', 'Partenaires', 'Stand'];
     const tombolaType = 'Tombola (Lots)'; // Or check includes 'Tombola'
 
     const financialStats = {
