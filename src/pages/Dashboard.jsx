@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const Dashboard = ({ entities }) => {
 
     // Constant Goal
-    const GOAL_REVENUE = 8000;
+    const GOAL_REVENUE = 21000;
 
     // --- Calculation Logic ---
     const stats = useMemo(() => {
