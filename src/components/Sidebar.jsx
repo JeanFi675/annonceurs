@@ -686,7 +686,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <span style={{ fontWeight: 'bold' }}>Participation</span>
                                         <span style={{ backgroundColor: 'black', color: 'white', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
-                                            {financialStats.tombola.count} lieux
+                                            {financialStats.tombola.count} Donateurs
                                         </span>
                                     </div>
                                 </div>
