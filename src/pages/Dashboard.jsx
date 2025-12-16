@@ -9,11 +9,29 @@ const Dashboard = ({ entities }) => {
     // --- Calculation Logic ---
     const stats = useMemo(() => {
         const totalEntities = entities.length;
-        const totalRevenue = entities.reduce((sum, e) => sum + (parseFloat(e.Recette) || 0), 0);
+        const validFinancialStatuses = ['Confirmé (en attente de paiement)', 'Paiement effectué'];
+
+        // Helper to check if entity counts for revenue
+        const isValidForRevenue = (e) => {
+            if (!e.Type) return false;
+            // Exclude Tombola from all revenue counts (Global & Per Person)
+            if (e.Type.includes('Tombola')) return false;
+
+            if (e.Type === 'Encart Pub') {
+                return validFinancialStatuses.includes(e.Statuts);
+            }
+            return true; // Other types count if they have revenue > 0
+        };
+
+        const totalRevenue = entities.reduce((sum, e) => {
+            if (!isValidForRevenue(e)) return sum;
+            return sum + (parseFloat(e.Recette) || 0);
+        }, 0);
+
         const signedDeals = entities.filter(e =>
-            e.Statuts === 'Confirmé (en attente de paiement)' ||
-            e.Statuts === 'Paiement effectué'
+            validFinancialStatuses.includes(e.Statuts)
         ).length;
+
         const conversionRate = totalEntities > 0 ? ((signedDeals / totalEntities) * 100).toFixed(1) : 0;
 
         const referentMap = {};
@@ -23,11 +41,16 @@ const Dashboard = ({ entities }) => {
             if (!referentMap[ref]) {
                 referentMap[ref] = { name: ref, revenue: 0, signedCount: 0, refusedCount: 0, totalCount: 0 };
             }
-            const revenue = parseFloat(e.Recette) || 0;
-            referentMap[ref].revenue += revenue;
+
+            // Revenue Calculation with Check
+            if (isValidForRevenue(e)) {
+                const revenue = parseFloat(e.Recette) || 0;
+                referentMap[ref].revenue += revenue;
+            }
+
             referentMap[ref].totalCount += 1;
 
-            if (e.Statuts === 'Confirmé (en attente de paiement)' || e.Statuts === 'Paiement effectué') {
+            if (validFinancialStatuses.includes(e.Statuts)) {
                 referentMap[ref].signedCount += 1;
             } else if (e.Statuts === 'Refusé') {
                 referentMap[ref].refusedCount += 1;

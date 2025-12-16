@@ -71,9 +71,17 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
     let totalRevenue = 0;
 
+    const validFinancialStatuses = ['Confirmé (en attente de paiement)', 'Paiement effectué'];
+
     entities.forEach(e => {
         const type = e.Type;
         if (!type) return;
+
+        // User Request: Filter Encart Pub to only show confirmed/paid
+        // Applying this logic to exclude them from Revenue and Section counts
+        if (type === 'Encart Pub' && !validFinancialStatuses.includes(e.Statuts)) {
+            return;
+        }
 
         const revenue = (e.Recette && parseFloat(e.Recette) > 0) ? parseFloat(e.Recette) : 0;
 
