@@ -607,8 +607,25 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             {
                 filters.Referent && filters.Referent !== 'Non attribué' && (() => {
                     const assignedEntities = entities.filter(e => e.Référent_partenariat_club === filters.Referent);
-                    // Simple sort
-                    const sortedEntities = [...assignedEntities].sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+
+                    // Custom Sort by Status as requested
+                    const statusOrder = {
+                        'À contacter': 1,
+                        'En discussion': 2,
+                        'Confirmé (en attente de paiement)': 3,
+                        'Paiement effectué': 3,
+                        'Refusé': 4,
+                        'Sans réponse': 4
+                    };
+                    const getOrder = (status) => statusOrder[status] || 99;
+
+                    const sortedEntities = [...assignedEntities].sort((a, b) => {
+                        const orderA = getOrder(a.Statuts);
+                        const orderB = getOrder(b.Statuts);
+                        if (orderA !== orderB) return orderA - orderB;
+                        // Secondary sort by title
+                        return (a.title || '').localeCompare(b.title || '');
+                    });
 
                     return sortedEntities.length > 0 && (
                         <ReferentEntitiesList entities={sortedEntities} referentName={filters.Referent} />
