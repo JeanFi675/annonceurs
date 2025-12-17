@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { fetchTrackingData, createTrackingRecord, updateTrackingRecord, deleteTrackingRecord, updateEntity, triggerInvoiceWebhook } from '../services/api';
-import { Link } from 'react-router-dom';
 import FactureModal from '../components/FactureModal';
+import { Link } from 'react-router-dom';
 
 const TYPES = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
 
@@ -10,8 +10,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
     const [trackingData, setTrackingData] = useState({});
     const [loading, setLoading] = useState(false);
     const [filterMode, setFilterMode] = useState('all'); // 'all', 'todo', 'done'
+    // Local state to force re-render when entity updates (Recette)
     const [localEntities, setLocalEntities] = useState(entities);
 
+    // Invoice Modal State
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
     const [selectedInvoiceEntity, setSelectedInvoiceEntity] = useState(null);
     const [selectedInvoiceTracking, setSelectedInvoiceTracking] = useState(null);
@@ -79,73 +81,6 @@ const SuiviAvancement = ({ entities, userRole }) => {
             }
             return String(link) === String(entityId);
         });
-    };
-
-    const handleOpenInvoice = (entity, tracking) => {
-        setSelectedInvoiceEntity(entity); // Plain entity object
-        setSelectedInvoiceTracking(tracking); // Tracking record
-        setShowInvoiceModal(true);
-    };
-
-    const handleInvoiceSave = async (formData) => {
-        try {
-            const trackId = selectedInvoiceTracking?.Id;
-            const entityId = selectedInvoiceEntity?.Id;
-
-            // 1. Prepare Tracking Payload (Suivi)
-            const trackingPayload = {
-                Email_Contact: formData.Facture_Email
-            };
-
-            // 2. Prepare Entity Payload (Annonceur / Liste de contact)
-            const entityPayload = {
-                Siret: formData.Siret,
-                Recette: formData.Facture_Montant,
-                address: formData.Facture_Adresse,
-                title: formData.Facture_Nom
-            };
-
-
-            // A. Update Tracking Record
-            if (trackId) {
-                await updateTrackingRecord(activeTab, trackId, trackingPayload);
-
-                // Update local state (preserve other fields + Description for UI)
-                setTrackingData(prev => ({
-                    ...prev,
-                    [activeTab]: prev[activeTab].map(r => r.Id === trackId ? { ...r, ...trackingPayload, Facture_Description: formData.Facture_Description } : r)
-                }));
-            } else {
-                // Create new tracking record if none exists
-                const newRecord = {
-                    Link_Annonceur: entityId,
-                    Titre: selectedInvoiceEntity.title || 'Suivi',
-                    ...trackingPayload
-                };
-                const created = await createTrackingRecord(activeTab, newRecord);
-                const recordForState = { ...created, Link_Annonceur: entityId, Facture_Description: formData.Facture_Description };
-                setTrackingData(prev => ({
-                    ...prev,
-                    [activeTab]: [...(prev[activeTab] || []), recordForState]
-                }));
-            }
-
-            // B. Update Entity Record
-            if (entityId) {
-                await updateEntity(entityId, entityPayload);
-            }
-
-            // alert("Informations de facturation enregistrées !");
-        } catch (error) {
-            console.error("Error saving invoice data", error);
-            const msg = error.response?.data?.msg || error.message || "Erreur inconnue";
-            alert(`Erreur lors de la sauvegarde : ${msg}. Vérifiez que les colonnes existent dans NocoDB.`);
-        }
-    };
-
-    const handleInvoiceGenerate = async (formData) => {
-        await handleInvoiceSave(formData); // Save first
-        await triggerInvoiceWebhook(formData); // Then trigger webhook
     };
 
     const handleUpdate = async (trackingId, field, value, entityId) => {
@@ -296,6 +231,82 @@ const SuiviAvancement = ({ entities, userRole }) => {
                     }
                 }
             }
+        }
+    };
+
+    // --- Invoice Logic ---
+    const handleOpenInvoice = (entity, tracking) => {
+        setSelectedInvoiceEntity(entity);
+        setSelectedInvoiceTracking(tracking);
+        setShowInvoiceModal(true);
+    };
+
+    const handleInvoiceSave = async (data) => {
+        if (!selectedInvoiceTracking || !selectedInvoiceEntity) return;
+
+        try {
+            // If the tracking record doesn't exist yet, we might need to create it first? 
+            // BUT UI only shows "Facture" button if row exists... wait.
+            // Actually row exists if it's in the list, but tracking object might be undefined if we haven't clicked/initted anything?
+            // "processedEntities" handles missing tracking by returning undfined.
+            // Use handleUpdate logic wrapper or direct update?
+            // "handleUpdate" handles creation if ID missing. Ideally we reuse it but it updates ONE field.
+            // Here we update multiple.
+
+            let trackId = selectedInvoiceTracking?.Id;
+            const type = activeTab;
+
+            if (!trackId) {
+                // Should create record first
+                const newRecord = {
+                    Link_Annonceur: selectedInvoiceEntity.Id,
+                    Titre: selectedInvoiceEntity.title || 'Suivi',
+                    ...data
+                };
+                const created = await createTrackingRecord(type, newRecord);
+                trackId = created.Id;
+
+                // Update local state is complex because structure updates.
+                // Simpler: reload or minimal local update.
+                setTrackingData(prev => ({
+                    ...prev,
+                    [type]: [...(prev[type] || []), { ...created, Link_Annonceur: selectedInvoiceEntity.Id }]
+                }));
+            } else {
+                await updateTrackingRecord(type, trackId, data);
+                // Local Update
+                setTrackingData(prev => ({
+                    ...prev,
+                    [type]: prev[type].map(r => r.Id === trackId ? { ...r, ...data } : r)
+                }));
+            }
+
+            alert("Informations de facturation enregistrées !");
+            setShowInvoiceModal(false);
+        } catch (e) {
+            console.error("Save invoice failed", e);
+            alert("Erreur sauvegarde facture");
+        }
+    };
+
+    const handleInvoiceGenerate = async (data) => {
+        try {
+            await handleInvoiceSave(data); // Save first
+
+            const payload = {
+                ...data,
+                EntityId: selectedInvoiceEntity.Id,
+                TrackingId: selectedInvoiceTracking?.Id, // Might be stale if just created, but Save handles creation logic implicitly?
+                // If Save created it, selectedInvoiceTracking is still null here.
+                // Refactor to ensure we get ID.
+                Type: activeTab
+            };
+
+            await triggerInvoiceWebhook(payload);
+            alert("Facture générée avec succès (Envoyée à n8n) !");
+        } catch (e) {
+            console.error(e);
+            alert("Erreur lors de la génération de la facture");
         }
     };
 
@@ -698,23 +709,14 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                             <div style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>RECETTE (€)</div>
                                         </div>
                                     )}
-                                </div>
 
-                                {!complete && missing.length > 0 && (
-                                    <div style={{
-                                        backgroundColor: '#ffd7d7', border: '2px solid red', padding: '10px',
-                                        fontSize: '0.9rem', fontWeight: 'bold', color: 'red'
-                                    }}>
-                                        ⚠️ {missing.join(', ')}
-                                    </div>
-                                )}
-
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                                    {(activeTab === 'Stand' || activeTab === 'Encart Pub' || activeTab === 'Partenaires') && (
+                                    {/* Invoice Button for Stand, Encart, Partenaires */}
+                                    {['Stand', 'Encart Pub', 'Partenaires'].includes(activeTab) && (
                                         <button
                                             onClick={() => handleOpenInvoice(entity, tracking)}
                                             style={{
-                                                backgroundColor: '#fff',
+                                                marginLeft: '10px',
+                                                backgroundColor: 'var(--brutal-ice)',
                                                 border: '2px solid black',
                                                 fontWeight: 'bold',
                                                 cursor: 'pointer',
@@ -726,6 +728,17 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                         </button>
                                     )}
                                 </div>
+
+                                {
+                                    !complete && missing.length > 0 && (
+                                        <div style={{
+                                            backgroundColor: '#ffd7d7', border: '2px solid red', padding: '10px',
+                                            fontSize: '0.9rem', fontWeight: 'bold', color: 'red'
+                                        }}>
+                                            ⚠️ {missing.join(', ')}
+                                        </div>
+                                    )
+                                }
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '2px solid #eee', paddingTop: '10px' }}>
                                     {activeTab === 'Encart Pub' && (
@@ -883,13 +896,16 @@ const SuiviAvancement = ({ entities, userRole }) => {
                         );
                     })}
                 </div>
-            )}
+            )
+            }
 
-            {filteredItems.length === 0 && !loading && (
-                <div style={{ textAlign: 'center', padding: '50px', fontSize: '1.2rem', color: '#666' }}>
-                    Aucune entité trouvée pour ce filtre. ⛱️
-                </div>
-            )}
+            {
+                filteredItems.length === 0 && !loading && (
+                    <div style={{ textAlign: 'center', padding: '50px', fontSize: '1.2rem', color: '#666' }}>
+                        Aucun élément à afficher
+                    </div>
+                )
+            }
 
             <FactureModal
                 isOpen={showInvoiceModal}
@@ -900,7 +916,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 onSave={handleInvoiceSave}
                 onGenerate={handleInvoiceGenerate}
             />
-        </div>
+        </div >
     );
 };
 

@@ -138,13 +138,11 @@ export const updateTrackingRecord = async (type, id, data) => {
   const token = import.meta.env.VITE_API_TOKEN;
   const url = `${BASE_API_URL}/${config.tableId}/records`;
 
-  // NocoDB v2 Update: PATCH body { Id: id, ...data }
   const response = await axios.patch(url, { Id: id, ...data }, {
     headers: { 'xc-token': token, 'Content-Type': 'application/json' }
   });
   return response.data;
 };
-
 
 export const deleteTrackingRecord = async (type, id) => {
   const config = TRACKING_TABLES[type];
@@ -211,17 +209,15 @@ export const getLinkedRecords = async (linkFieldId, mainRecordId) => {
 
 export const triggerInvoiceWebhook = async (payload) => {
   const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
-  if (!webhookUrl) {
-    console.error('VITE_N8N_WEBHOOK_URL is missing!');
-    alert("L'URL du Webhook n8n n'est pas configurée.");
-    return;
-  }
+  if (!webhookUrl) throw new Error("Webhook URL not configured");
 
   try {
-    await axios.post(webhookUrl, payload);
-    alert('Facture générée avec succès !');
+    const response = await axios.post(webhookUrl, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
+    return response.data;
   } catch (error) {
-    console.error('Error triggering invoice webhook:', error);
-    alert('Erreur lors de la génération de la facture.');
+    console.error("Webhook trigger failed", error);
+    throw error;
   }
 };
