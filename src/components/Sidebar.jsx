@@ -140,6 +140,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     const [showPlaceSelector, setShowPlaceSelector] = useState(false);
     const [nearbyPlaces, setNearbyPlaces] = useState([]);
     const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
+    const [showReferentDropdown, setShowReferentDropdown] = useState(false);
 
 
 
@@ -751,10 +752,72 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
                         <div className="form-group" style={{ marginBottom: '15px' }}>
                             <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Référent</label>
-                            <select name="Referent" value={formData.Referent} onChange={handleFormChange} style={{ width: '100%' }}>
-                                <option value="">Non attribué</option>
-                                {referentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                            </select>
+                            <div style={{ position: 'relative' }}>
+                                <input
+                                    type="text"
+                                    name="Referent"
+                                    value={formData.Referent}
+                                    onChange={handleFormChange}
+                                    onFocus={() => setShowReferentDropdown(true)}
+                                    placeholder="Sélectionner ou saisir un nom..."
+                                    autoComplete="off"
+                                    style={{ width: '100%', padding: '5px' }}
+                                />
+                                {showReferentDropdown && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '100%',
+                                        left: 0,
+                                        right: 0,
+                                        maxHeight: '150px',
+                                        overflowY: 'auto',
+                                        backgroundColor: 'white',
+                                        border: '1px solid black',
+                                        zIndex: 1000,
+                                        boxShadow: 'var(--brutal-shadow)'
+                                    }}>
+                                        {referentOptions.filter(opt => opt.toLowerCase().includes((formData.Referent || '').toLowerCase())).map(opt => (
+                                            <div
+                                                key={opt}
+                                                onMouseDown={(e) => {
+                                                    e.preventDefault(); // Prevent blur
+                                                    handleFormChange({ target: { name: 'Referent', value: opt } });
+                                                    setShowReferentDropdown(false);
+                                                }}
+                                                style={{
+                                                    padding: '8px',
+                                                    cursor: 'pointer',
+                                                    borderBottom: '1px solid #eee',
+                                                    fontWeight: formData.Referent === opt ? 'bold' : 'normal',
+                                                    backgroundColor: formData.Referent === opt ? '#f0f0f0' : 'white'
+                                                }}
+                                                onMouseEnter={(e) => e.target.style.backgroundColor = '#f0f0f0'}
+                                                onMouseLeave={(e) => e.target.style.backgroundColor = formData.Referent === opt ? '#f0f0f0' : 'white'}
+                                            >
+                                                {opt}
+                                            </div>
+                                        ))}
+                                        {referentOptions.filter(opt => opt.toLowerCase().includes((formData.Referent || '').toLowerCase())).length === 0 && (
+                                            <div style={{ padding: '8px', fontStyle: 'italic', color: '#666' }}
+                                                onMouseDown={(e) => {
+                                                    // Optional: clicking this could just close
+                                                    e.preventDefault();
+                                                    setShowReferentDropdown(false);
+                                                }}
+                                            >
+                                                Nouvelle entrée : "{formData.Referent}"
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                {/* Overlay to close on outside click if needed, or rely on blur handling */}
+                                {showReferentDropdown && (
+                                    <div
+                                        style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 999, cursor: 'default' }}
+                                        onClick={() => setShowReferentDropdown(false)}
+                                    />
+                                )}
+                            </div>
                         </div>
 
                         <div className="form-group" style={{ marginBottom: '15px' }}>
