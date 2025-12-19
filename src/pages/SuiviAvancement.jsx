@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTrackingData, createTrackingRecord, updateTrackingRecord, deleteTrackingRecord, updateEntity, triggerInvoiceWebhook } from '../services/api';
+import { fetchTrackingData, createTrackingRecord, updateTrackingRecord, deleteTrackingRecord, updateEntity, triggerInvoiceWebhook, triggerMecenatWebhook } from '../services/api';
 import { Link } from 'react-router-dom';
 import FactureModal from '../components/FactureModal';
+import MecenatModal from '../components/MecenatModal';
 
 const TYPES = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
 
@@ -15,6 +16,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
     const [showInvoiceModal, setShowInvoiceModal] = useState(false);
     const [selectedInvoiceEntity, setSelectedInvoiceEntity] = useState(null);
     const [selectedInvoiceTracking, setSelectedInvoiceTracking] = useState(null);
+
+    const [showMecenatModal, setShowMecenatModal] = useState(false);
+    const [selectedMecenatEntity, setSelectedMecenatEntity] = useState(null);
+    const [selectedMecenatTracking, setSelectedMecenatTracking] = useState(null);
 
     const relevantEntities = localEntities.filter(e => {
         const s = e.Statuts;
@@ -146,6 +151,75 @@ const SuiviAvancement = ({ entities, userRole }) => {
     const handleInvoiceGenerate = async (formData) => {
         await handleInvoiceSave(formData); // Save first
         await triggerInvoiceWebhook(formData); // Then trigger webhook
+    };
+
+    // --- Mecenat Handlers ---
+    const handleOpenMecenat = (entity, tracking) => {
+        setSelectedMecenatEntity(entity);
+        setSelectedMecenatTracking(tracking);
+        setShowMecenatModal(true);
+    };
+
+    const handleMecenatSave = async (formData) => {
+        try {
+            const trackId = selectedMecenatTracking?.Id;
+            const entityId = selectedMecenatEntity?.Id;
+
+            // 1. Prepare Tracking Payload
+            const trackingPayload = {
+                Email_Contact: formData.Email
+                // We don't save Forme_Juridique here unless we have a specific field, defaulting to just Email update on tracking side
+            };
+
+            // 2. Prepare Entity Payload
+            const entityPayload = {
+                Siret: formData.SIRET,
+                Recette: formData.Montant,
+                address: formData.Adresse,
+                title: formData.Dénomination,
+                juridique: formData.Forme_Juridique
+            };
+
+            // A. Update Tracking
+            if (trackId) {
+                await updateTrackingRecord(activeTab, trackId, trackingPayload);
+                setTrackingData(prev => ({
+                    ...prev,
+                    [activeTab]: prev[activeTab].map(r => r.Id === trackId ? { ...r, ...trackingPayload } : r)
+                }));
+            } else {
+                const newRecord = {
+                    Link_Annonceur: entityId,
+                    Titre: selectedMecenatEntity.title || 'Suivi',
+                    ...trackingPayload
+                };
+                const created = await createTrackingRecord(activeTab, newRecord);
+                const recordForState = { ...created, Link_Annonceur: entityId };
+                setTrackingData(prev => ({
+                    ...prev,
+                    [activeTab]: [...(prev[activeTab] || []), recordForState]
+                }));
+            }
+
+            // B. Update Entity
+            if (entityId) {
+                await updateEntity(entityId, entityPayload);
+            }
+
+        } catch (error) {
+            console.error("Error saving mecenat data", error);
+            alert("Erreur lors de la sauvegarde des données Mécénat.");
+            throw error; // Rethrow to stop generation if save fails
+        }
+    };
+
+    const handleMecenatGenerate = async (formData) => {
+        try {
+            await handleMecenatSave(formData);
+            await triggerMecenatWebhook(formData);
+        } catch (e) {
+            // Already handled alert in save or trigger
+        }
     };
 
     const handleUpdate = async (trackingId, field, value, entityId) => {
@@ -725,6 +799,21 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                             📄 FACTURE
                                         </button>
                                     )}
+                                    {activeTab === 'Mécénat' && (
+                                        <button
+                                            onClick={() => handleOpenMecenat(entity, tracking)}
+                                            style={{
+                                                backgroundColor: '#fff',
+                                                border: '2px solid black',
+                                                fontWeight: 'bold',
+                                                cursor: 'pointer',
+                                                padding: '5px 10px',
+                                                height: 'fit-content'
+                                            }}
+                                        >
+                                            ❤️ REÇU MÉCÉNAT
+                                        </button>
+                                    )}
                                 </div>
 
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '2px solid #eee', paddingTop: '10px' }}>
@@ -899,6 +988,15 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 type={activeTab}
                 onSave={handleInvoiceSave}
                 onGenerate={handleInvoiceGenerate}
+            />
+
+            <MecenatModal
+                isOpen={showMecenatModal}
+                onClose={() => setShowMecenatModal(false)}
+                entity={selectedMecenatEntity}
+                tracking={selectedMecenatTracking}
+                onSave={handleMecenatSave}
+                onGenerate={handleMecenatGenerate}
             />
         </div>
     );

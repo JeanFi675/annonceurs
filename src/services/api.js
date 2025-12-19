@@ -209,6 +209,7 @@ export const getLinkedRecords = async (linkFieldId, mainRecordId) => {
   }
 };
 
+
 export const triggerInvoiceWebhook = async (payload) => {
   const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
   if (!webhookUrl) {
@@ -223,5 +224,25 @@ export const triggerInvoiceWebhook = async (payload) => {
   } catch (error) {
     console.error('Error triggering invoice webhook:', error);
     alert('Erreur lors de la génération de la facture.');
+  }
+};
+
+export const triggerMecenatWebhook = async (payload) => {
+  // Use specific Webhook URL or fallback to main one if user hasn't provided two distinct ones yet, 
+  // but better to use a specific env var.
+  const webhookUrl = import.meta.env.VITE_N8N_MECENAT_WEBHOOK_URL || 'https://primary-production-5623.up.railway.app/webhook-test/mecenat-placeholder';
+
+  // Note: Using a placeholder if env var is missing to avoid crash, but alerting user.
+  if (!import.meta.env.VITE_N8N_MECENAT_WEBHOOK_URL) {
+    console.warn("VITE_N8N_MECENAT_WEBHOOK_URL not set. Using placeholder.");
+  }
+
+  try {
+    console.log("Triggering Mecenat Webhook with:", payload);
+    await axios.post(webhookUrl, payload);
+    alert('Reçu Mécénat généré avec succès !');
+  } catch (error) {
+    console.error('Error triggering mecenat webhook:', error);
+    alert('Erreur lors de la génération du reçu.');
   }
 };
