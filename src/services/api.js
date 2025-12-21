@@ -203,6 +203,26 @@ export const linkRecord = async (linkFieldId, mainRecordId, childRecordId) => {
 
 
 
+/**
+ * Creates a tracking record and strictly links it to the parent Entity via the Link API.
+ * This guarantees the 1-1 relationship is established correctly.
+ */
+export const createAndLinkRecord = async (type, data, entityId) => {
+    // 1. Create the record (without relying on Link_Annonceur body property for the link)
+    const newRecord = await createTrackingRecord(type, data);
+
+    // 2. Link it using the explicit Link API
+    const linkFieldId = LINK_FIELDS[type];
+    if (newRecord && newRecord.Id && linkFieldId && entityId) {
+        console.log(`[Create&Link] Linking ${type} (Rec: ${newRecord.Id}) to Entity ${entityId} via ${linkFieldId}`);
+        await linkRecord(linkFieldId, entityId, newRecord.Id);
+    } else {
+        console.warn(`[Create&Link] Missing info to link: RecordId=${newRecord?.Id}, LinkField=${linkFieldId}, EntityId=${entityId}`);
+    }
+
+    return newRecord;
+};
+
 export const triggerInvoiceWebhook = async (payload) => {
   const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
   if (!webhookUrl) {

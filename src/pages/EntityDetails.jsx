@@ -4,6 +4,7 @@ import { updateEntity } from '../services/api';
 import { generateAttestation } from '../utils/attestationUtils';
 import ReactDOM from 'react-dom';
 
+
 const EntityDetails = ({ entities, refreshEntities, userRole }) => {
     const { id } = useParams();
     const entity = entities.find(e => String(e.Id) === id);

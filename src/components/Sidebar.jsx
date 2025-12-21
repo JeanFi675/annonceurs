@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 // ... (previous imports)
-import { createEntity, updateEntity, LINK_FIELDS } from '../services/api';
+import { createEntity, updateEntity } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
 import axios from 'axios';
@@ -237,9 +237,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
             lon = place.center.lon;
         }
 
-        const addressFromTags = place.tags['addr:street']
-            ? `${place.tags['addr:housenumber'] || ''} ${place.tags['addr:street']}, ${place.tags['addr:city'] || ''}`
-            : '';
+
 
         setFormData(prev => ({
             ...prev,
@@ -373,8 +371,6 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                         entityData.Comments = existingComments ? `${existingComments}\n${logMessage}` : logMessage;
                     }
                 }
-
-                await updateEntity(editingId, entityData);
 
                 await updateEntity(editingId, entityData);
 
