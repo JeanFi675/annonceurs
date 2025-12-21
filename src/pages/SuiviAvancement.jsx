@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTrackingData, createTrackingRecord, updateTrackingRecord, deleteTrackingRecord, updateEntity, triggerInvoiceWebhook, triggerMecenatWebhook } from '../services/api';
+import { fetchTrackingData, deleteTrackingRecord, updateTrackingRecord, updateEntity, triggerInvoiceWebhook, triggerMecenatWebhook, createAndLinkRecord } from '../services/api';
 import { Link } from 'react-router-dom';
 import FactureModal from '../components/FactureModal';
 import MecenatModal from '../components/MecenatModal';
@@ -132,11 +132,11 @@ const SuiviAvancement = ({ entities, userRole }) => {
             } else {
                 // Create new tracking record if none exists
                 const newRecord = {
-                    Link_Annonceur: entityId,
                     Titre: selectedInvoiceEntity.title || 'Suivi',
                     ...trackingPayload
                 };
-                const created = await createTrackingRecord(activeTab, newRecord);
+                // Use createAndLinkRecord instead of createTrackingRecord
+                const created = await createAndLinkRecord(activeTab, newRecord, entityId);
                 const recordForState = { ...created, Link_Annonceur: entityId, Facture_Description: formData.Facture_Description };
                 setTrackingData(prev => ({
                     ...prev,
@@ -200,11 +200,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 }));
             } else {
                 const newRecord = {
-                    Link_Annonceur: entityId,
                     Titre: selectedMecenatEntity.title || 'Suivi',
                     ...trackingPayload
                 };
-                const created = await createTrackingRecord(activeTab, newRecord);
+                const created = await createAndLinkRecord(activeTab, newRecord, entityId);
                 const recordForState = { ...created, Link_Annonceur: entityId };
                 setTrackingData(prev => ({
                     ...prev,
@@ -228,7 +227,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
         try {
             await handleMecenatSave(formData);
             await triggerMecenatWebhook(formData);
-        } catch (e) {
+        } catch {
             // Already handled alert in save or trigger
         }
     };
@@ -245,11 +244,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 // Find entity title for valid creation
                 const entity = relevantEntities.find(e => e.Id === entityId);
                 const newRecord = {
-                    Link_Annonceur: entityId,
                     Titre: entity?.title || 'Suivi',
                     [field]: value
                 };
-                const created = await createTrackingRecord(activeTab, newRecord);
+                const created = await createAndLinkRecord(activeTab, newRecord, entityId);
 
                 // IMPORTANT: Ensure Link_Annonceur is correct in local state to allow subsequent updates to find it
                 // API might return it differently or not expanded.
@@ -304,10 +302,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 if (!tracking?.Stand) {
                     try {
                         const entity = relevantEntities.find(e => e.Id === entityId);
-                        const newStand = await createTrackingRecord('Stand', {
+                        // CREATE AND LINK Stand
+                        const newStand = await createAndLinkRecord('Stand', {
                             Titre: `Stand - ${entity?.title || 'Partenaire'}`,
-                            Link_Annonceur: entityId
-                        });
+                        }, entityId);
 
                         // Link new Stand to Partner
                         // Assuming 'Stand' field in Partenaires expects a Link (ID or array of IDs)
@@ -362,10 +360,9 @@ const SuiviAvancement = ({ entities, userRole }) => {
                     if (!tracking?.Stand) {
                         try {
                             const entity = relevantEntities.find(e => e.Id === entityId);
-                            const newStand = await createTrackingRecord('Stand', {
+                             const newStand = await createAndLinkRecord('Stand', {
                                 Titre: `Stand - ${entity?.title || 'Partenaire'}`,
-                                Link_Annonceur: entityId
-                            });
+                            }, entityId);
 
                             await updateTrackingRecord('Partenaires', trackingId, { Stand: newStand.Id });
 
@@ -463,7 +460,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 if (!tracking?.Lot_Recupere) actions.push("Lot à récupérer");
                 if (!tracking?.Logo_Recu) actions.push("Logo manquant");
                 break;
-            case 'Partenaires':
+            case 'Partenaires': {
                 const packs = tracking?.Pack_Choisi ? tracking.Pack_Choisi.split(',') : [];
                 if (packs.includes('4e de couverture') && !tracking?.Encart_Pub) actions.push("Encart Pub manquant");
                 if (packs.includes('Affichage Mur') && !tracking?.Pancarte_Recu) actions.push("Pancarte manquante");
@@ -471,6 +468,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 if (packs.includes('Stand 3x3m') && !tracking?.Stand_Inscrit) actions.push("Stand non inscrit");
                 if (!tracking?.Preuve_Paiement_Transmise && !tracking?.Type_Paiement) actions.push("Paiement/Preuve manquant");
                 break;
+            }
         }
         return actions;
     };
@@ -571,10 +569,9 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                     const existing = getTrackingRecord(entity.Id);
                                     if (!existing) {
                                         try {
-                                            await createTrackingRecord(activeTab, {
-                                                Link_Annonceur: entity.Id,
+                                            await createAndLinkRecord(activeTab, {
                                                 Titre: entity.title || 'Suivi'
-                                            });
+                                            }, entity.Id);
                                             count++;
                                         } catch (e) {
                                             console.error("Init failed for", entity.title, e);

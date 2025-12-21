@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 // ... (previous imports)
-import { createEntity, updateEntity, createTrackingRecord, fetchTrackingData, deleteTrackingRecord, LINK_FIELDS, linkRecord, getLinkedRecords } from '../services/api';
+import { createEntity, updateEntity, LINK_FIELDS } from '../services/api';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import ReferentEntitiesList from './ReferentEntitiesList';
 import axios from 'axios';
@@ -60,7 +60,7 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
     // 4. Tombola (Count only)
 
     const mainGroupTypes = ['Encart Pub', 'Mécénat', 'Partenaires', 'Stand'];
-    const tombolaType = 'Tombola (Lots)'; // Or check includes 'Tombola'
+ // Or check includes 'Tombola'
 
     const financialStats = {
         mainGroup: { byType: {}, total: 0, count: 0 },
@@ -376,55 +376,17 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
                 await updateEntity(editingId, entityData);
 
-                // --- ROBUST CONSISTENCY CHECK (Fetching real state from API) ---
-                // We do NOT trust originalEntity for links as it might link to shallow objects or count.
-                // We fetch the actual linked records from NocoDB to be sure.
-                try {
-                    const currentType = entityData.Type;
-                    console.log(`[Link Manager] Verifying links for type: ${currentType}`);
+                await updateEntity(editingId, entityData);
 
-                    const LINK_COLUMNS = [
-                        { col: 'EncartPub', typeMatch: ['Encart Pub'], linkFieldId: 'cyl94cin0jr44gs', tableType: 'Encart Pub' },
-                        { col: 'Tombola', typeMatch: ['Tombola', 'Tombola (Lots)'], linkFieldId: 'cng8iswsgb2q60o', tableType: 'Tombola (Lots)' },
-                        { col: 'Partenaires', typeMatch: ['Partenaires'], linkFieldId: 'calv2cwh9dp92bi', tableType: 'Partenaires' },
-                        { col: 'Mecenat', typeMatch: ['Mécénat'], linkFieldId: 'cfjurax08wyyvyr', tableType: 'Mécénat' },
-                        { col: 'Stand', typeMatch: ['Stand'], linkFieldId: 'csvaotykbbr6jed', tableType: 'Stand' }
-                    ];
-
-                    for (const config of LINK_COLUMNS) {
-                        const shouldBeActive = config.typeMatch.includes(currentType);
-
-                        // Fetch ACTUAL linked records
-                        const linkedRecords = await getLinkedRecords(config.linkFieldId, editingId);
-                        const hasLinks = linkedRecords.length > 0;
-
-                        if (shouldBeActive) {
-                            if (hasLinks) {
-                                console.log(`[Link Manager] OK: Found ${linkedRecords.length} record(s) in ${config.col}`);
-                            } else {
-                                console.log(`[Link Manager] MISSING: Creating link for ${config.col}...`);
-                                try {
-                                    const newRec = await createTrackingRecord(config.tableType, { Titre: entityData.title });
-                                    if (newRec?.Id) {
-                                        await linkRecord(config.linkFieldId, editingId, newRec.Id);
-                                        console.log(`[Link Manager] Created & Linked ${config.col}`);
-                                    }
-                                } catch (e) { console.error(e); alert(`Erreur creation ${config.col}`); }
-                            }
-                        } else {
-                            // CLEANUP: Must match 0
-                            if (hasLinks) {
-                                console.log(`[Link Manager] CLEANUP: Found ${linkedRecords.length} unauthorized records in ${config.col}. Deleting...`);
-                                for (const rec of linkedRecords) {
-                                    try {
-                                        if (rec.Id) await deleteTrackingRecord(config.tableType, rec.Id);
-                                    } catch (e) { console.error(`Failed deletion ${config.col}`, e); }
-                                }
-                            }
-                        }
-                    }
-                } catch (err) {
-                    console.error("Consistency Check Fatal Error:", err);
+                if (isEditing && editingId) {
+                     const originalEntity = entities.find(e => e.Id === editingId);
+                     // Only sync if Type REALLY changed
+                     if (originalEntity && entityData.Type !== originalEntity.Type) {
+                         console.log(`[Sidebar] Type changed (${originalEntity.Type} -> ${entityData.Type}). Syncing...`);
+                         const { synchronizeTrackingType } = await import('../services/api');
+                         // Pass validation of Title
+                         await synchronizeTrackingType(editingId, entityData.Type, originalEntity);
+                     }
                 }
 
                 alert('Lieu modifié avec succès !');
@@ -439,18 +401,10 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                 // Automatic Link Creation for New Entity
                 if (created && created.Id && entityData.Type) {
                     try {
-                        const targetFieldId = LINK_FIELDS[entityData.Type];
-                        if (targetFieldId) {
-                            console.log(`[Link Manager - Create] Creating initial link for ${entityData.Type}`);
-                            const newRecord = await createTrackingRecord(entityData.Type, {
-                                Titre: entityData.title
-                            });
-                            if (newRecord && newRecord.Id) {
-                                await linkRecord(targetFieldId, created.Id, newRecord.Id);
-                                console.log(`[Link Manager - Create] Success: Linked.`);
-                            }
-                        }
-                    } catch (e) { console.log("Auto-link error:", e); }
+                        console.log(`[Sidebar] New entity created. Syncing tracking for type: ${entityData.Type}`);
+                        const { synchronizeTrackingType } = await import('../services/api');
+                        await synchronizeTrackingType(created.Id, entityData.Type);
+                    } catch (e) { console.error("Auto-link error:", e); }
                 }
 
                 alert('Lieu ajouté !');

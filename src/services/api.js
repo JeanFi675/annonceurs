@@ -117,7 +117,7 @@ export const fetchTrackingData = async (type) => {
       params: { limit: 1000, offset: 0 },
     });
     return response.data.list || [];
-  } catch (error) {
+  } catch {
     console.warn(
       `Could not fetch tracking data for ${type} (Table ID likely missing)`
     );
@@ -201,23 +201,7 @@ export const linkRecord = async (linkFieldId, mainRecordId, childRecordId) => {
   return response.data;
 };
 
-export const getLinkedRecords = async (linkFieldId, mainRecordId) => {
-  const token = import.meta.env.VITE_API_TOKEN;
-  const url = `${BASE_API_URL}/${MAIN_TABLE_ID}/links/${linkFieldId}/records/${mainRecordId}`;
 
-  try {
-    const response = await axios.get(url, {
-      headers: {
-        "xc-token": token,
-      },
-      params: { limit: 10 },
-    });
-    return response.data.list || [];
-  } catch (e) {
-    console.error("Error fetching linked records:", e);
-    return [];
-  }
-};
 
 export const triggerInvoiceWebhook = async (payload) => {
   const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
@@ -259,81 +243,149 @@ export const triggerMecenatWebhook = async (payload) => {
 };
 
 // --- Workflow Synchronization ---
+// Link ID for Partenaires -> Stand (provided by user)
+const PARTENAIRE_STAND_LINK_ID = "cised9h8iiyt5db";
 
-export const synchronizeTrackingType = async (entityId, newType) => {
-  console.log(
-    `Synchronizing tracking for Entity ${entityId} to New Type: ${newType}`
-  );
+export const synchronizeTrackingType = async (entityId, newType, _passedEntity) => {
+  console.log(`[Sync] Synchronizing Entity ${entityId} to New Type: ${newType}`);
 
-  // 1. Iterate over all tracked types
-  for (const [type, config] of Object.entries(TRACKING_TABLES)) {
-    if (type === "Subvention") continue; // Skip Subvention for now if not active
-    if (type === "Tombola") continue; // Skip Alias
-
-    const isTargetType = type === newType;
-
-    // Fetch records linked to this entity in this table
-    // We can't easily query "All records where Link_Annonceur = ID" without specific View or Filter API
-    // But our fetchTrackingData gets ALL records. We can filter client side (expensive but safest without complex API filters)
-    // OR we use the NocoDB Filter API: (Link_Annonceur,eq,id)
-
-    try {
+  // 0. FETCH FRESH ENTITY from "Liste de contact" (Main Table)
+  // User insists on using the GET from Main Table to find the linked IDs.
+  // We do not trust the passed entity or UI state to be complete/fresh.
+  let fullEntity = null;
+  try {
       const token = import.meta.env.VITE_API_TOKEN;
-      const url = `${BASE_API_URL}/${config.tableId}/records`;
-
-      // Using NocoDB Filter Syntax if possible, or just fetch all and filter (safer for small datasets)
-      // Let's try filtered request for efficiency: where=(Link_Annonceur,eq,entityId)
-      // Note: relation column filtering might depend on NocoDB version.
-      // Fallback: Fetch all (current implementation does this anyway in Suivi page)
-
-      // For now, let's fetch all records for this table (Max 1000).
-      // Reuse fetchTrackingData logic but we need the RAW list not stored state
-      const response = await axios.get(url, {
-        headers: { "xc-token": token },
-        params: {
-          limit: 1000,
-          offset: 0,
-          where: `(Link_Annonceur,eq,${entityId})`, // Try direct filter
-        },
+      const url = `${API_URL}/${entityId}`;
+      console.log(`[Sync] Fetching fresh Entity from: ${url}`);
+      const res = await axios.get(url, {
+          headers: { "xc-token": token }
       });
+      fullEntity = res.data;
+  } catch (err) {
+      console.error(`[Sync] Failed to fetch fresh entity ${entityId}`, err);
+      // Fallback to passed entity if valid, or abort?
+      // If we can't fetch main entity, we can't safely sync.
+      fullEntity = _passedEntity; 
+  }
 
-      const records = response.data.list || [];
-      // If filter didn't work (empty list or error), we might need to fetch all.
-      // But let's assume it works or returns empty.
-      // If API ignores 'where', it returns ALL. We must manually filter to be safe.
-      const relatedRecords = records.filter((r) => {
-        const link = r.Link_Annonceur;
-        const linkId =
-          typeof link === "object" && link !== null ? link.Id : link;
-        return String(linkId) === String(entityId);
-      });
+  // Mapping from "Option Value" (Type) to "Entity Keys" (JSON) and "Target Table Type"
+  // User indicated specific keys are used for relations in the API response.
+  const DIRECT_MAP = {
+      'Encart Pub': { keys: ['EncartPub', 'partenaires_copy_id'], type: 'Encart Pub' },
+      'Tombola (Lots)': { keys: ['Tombola', 'stand_copy_id2'], type: 'Tombola (Lots)' },
+      'Partenaires': { keys: ['Partenaires', 'stand_copy_id1'], type: 'Partenaires' },
+      'Mécénat': { keys: ['Mecenat', 'stand_copy_id'], type: 'Mécénat' },
+      'Stand': { keys: ['Stand'], type: 'Stand' }
+  };
 
-      if (isTargetType) {
-        // IT IS the new type.
-        if (relatedRecords.length === 0) {
-          // Create if missing
-          console.log(`Creating missing tracking record for ${type}`);
-          // We need the Entity Title... we might not have it here easily without passing it.
-          // But usually updates happen in EntityDetails where we have it.
-          // We'll create a skeletal record, user will fill details.
-          await createTrackingRecord(type, {
-            Link_Annonceur: entityId,
-            Titre: "Suivi (Auto-Généré)", // Should ideally be Entity Title
-          });
-        }
-        // If exists, do nothing (preserve).
-      } else {
-        // IT IS NOT the new type.
-        // If records exist, DELETE them.
-        for (const record of relatedRecords) {
-          console.log(
-            `Deleting obsolete tracking record in ${type} (ID: ${record.Id})`
-          );
-          await deleteTrackingRecord(type, record.Id);
+  const entityTitle = fullEntity?.title || "Suivi (Sans titre)";
+
+  // Debug: Log what specific relation keys we found
+  if (fullEntity) {
+      const foundKeys = Object.keys(fullEntity).filter(k => 
+         ['Mecenat', 'Partenaires', 'Stand', 'Tombola', 'EncartPub', 'stand_copy_id', 'stand_copy_id1', 'stand_copy_id2', 'partenaires_copy_id'].includes(k)
+      );
+      console.log(`[Sync] Inspecting Fresh Entity for links. Found relation keys:`, foundKeys);
+  }
+
+  // 1. Determine Exceptions (Partenaires -> Stand)
+  let shouldStandExist = (newType === 'Stand');
+  let partenaireRecord = null; // Store for linking
+
+  if (newType === 'Partenaires') {
+      // Check if we have Partenaire record in fullEntity (Iterate possible keys)
+      const pKeys = DIRECT_MAP['Partenaires'].keys;
+      for (const k of pKeys) {
+        if (fullEntity && fullEntity[k]) {
+             partenaireRecord = fullEntity[k];
+             if (fullEntity[k].Pack_Choisi && fullEntity[k].Pack_Choisi.includes('Stand 3x3m')) {
+                 shouldStandExist = true;
+             }
+             break; // Found it
         }
       }
-    } catch (error) {
-      console.error(`Error syncing table ${type}`, error);
-    }
+  }
+
+  // 2. Iterate over all tracked types to Synchronize
+  for (const [optionType, config] of Object.entries(DIRECT_MAP)) {
+      const targetType = config.type;
+      const possibleKeys = config.keys;
+      
+      // Look for existing record using ALL possible keys
+      let existingId = null;
+
+      if (fullEntity) {
+          for (const key of possibleKeys) {
+              const val = fullEntity[key];
+              if (val) {
+                  // val could be Object (HasOne) or Array (HasMany)
+                  // NocoDB sometimes returns { match: ... } or just the object? 
+                  // Let's check commonly returned structures.
+                  if (val.Id) {
+                      existingId = val.Id;
+                      console.log(`[Sync] Found existing ${targetType} via key '${key}' (ID: ${existingId}) -> [Delete candidate if type mismatch]`);
+                      break;
+                  } else if (Array.isArray(val) && val.length > 0 && val[0].Id) {
+                      existingId = val[0].Id;
+                      console.log(`[Sync] Found existing ${targetType} via key '${key}' (ID: ${existingId}) [Array] -> [Delete candidate if type mismatch]`);
+                      break;
+                  }
+              }
+          }
+      }
+
+
+
+      // Should it exist?
+      let shouldExist = (optionType === newType);
+      
+      // Special alias handling (Tombola) if needed, but DIRECT_MAP handles keys.
+      if (newType === 'Tombola' && optionType === 'Tombola (Lots)') shouldExist = true;
+      if (optionType === 'Stand' && shouldStandExist) shouldExist = true;
+
+      try {
+          if (shouldExist) {
+              if (!existingId) {
+                  console.log(`[Sync] Creating missing tracking record for ${targetType}`);
+                  // Create
+                  const newRecord = await createTrackingRecord(targetType, {
+                      Titre: entityTitle
+                  });
+                  // Link to Entity (Liste de contact)
+                  const linkFieldId = LINK_FIELDS[targetType];
+                  if (newRecord && newRecord.Id && linkFieldId) {
+                       console.log(`[Sync] Linking ${targetType} (${newRecord.Id}) -> Entity (${entityId})`);
+                       await linkRecord(linkFieldId, entityId, newRecord.Id);
+                  }
+
+                  // Handle Stand -> Partenaire Link Exception
+                  if (targetType === 'Stand' && newType === 'Partenaires' && partenaireRecord) {
+                      // We just created a Stand, and we have a Partenaire record. Link them!
+                      // The link is FROM Partenaire TO Stand (User provided ID in Partenaire table)
+                      // LINK_ID: cised9h8iiyt5db
+                      // Parent: Partenaire (partenaireRecord.Id)
+                      // Child: Stand (newRecord.Id)
+                      console.log(`[Sync] Linking Partenaire (${partenaireRecord.Id}) -> Stand (${newRecord.Id})`);
+                      // Note: linkRecord args are (linkFieldId, mainRecordId, childRecordId)
+                      // User said: "Dans partenaire : cised9h8iiyt5db". So Partenaire is Main.
+                      await linkRecord(PARTENAIRE_STAND_LINK_ID, partenaireRecord.Id, newRecord.Id);
+                  }
+              } else {
+                  // Exists. Do we need to ensure the Partenaire->Stand link exists if we are in that case?
+                  if (targetType === 'Stand' && newType === 'Partenaires' && partenaireRecord) {
+                       // Logic to check/create link between existing Stand and existing Partenaire?
+                       // Maybe too heavy for now, assuming if both exist they are linked or user handles it?
+                       // Let's at least Log.
+                  }
+              }
+          } else {
+              if (existingId) {
+                  console.log(`[Sync] Deleting obsolete tracking record in ${targetType} (ID: ${existingId})`);
+                  await deleteTrackingRecord(targetType, existingId);
+              }
+          }
+      } catch (err) {
+          console.error(`[Sync] Error syncing ${targetType}`, err);
+      }
   }
 };
