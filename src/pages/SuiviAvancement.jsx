@@ -536,41 +536,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
                         </h2>
                         <p style={{ margin: '5px 0 0 0', color: '#666' }}>Avancement : {activeTab}</p>
 
-                        {/* TEMPORARY INITIALIZATION BUTTON */}
-                        <button
-                            onClick={async () => {
-                                if (!window.confirm(`Initialiser les lignes de suivi manquantes pour ${activeTab} ?`)) return;
-                                setLoading(true);
-                                let count = 0;
-                                for (const entity of relevantEntities) {
-                                    const existing = getTrackingRecord(entity.Id);
-                                    if (!existing) {
-                                        try {
-                                            await createAndLinkRecord(activeTab, {
-                                                Titre: entity.title || 'Suivi'
-                                            }, entity.Id);
-                                            count++;
-                                        } catch (e) {
-                                            console.error("Init failed for", entity.title, e);
-                                        }
-                                    }
-                                }
-                                setLoading(false);
-                                alert(`${count} lignes créées ! Rechargement...`);
-                                window.location.reload();
-                            }}
-                            style={{
-                                marginTop: '10px',
-                                padding: '5px 10px',
-                                backgroundColor: '#ffffcc',
-                                border: '1px dashed orange',
-                                cursor: 'pointer',
-                                fontSize: '0.8rem',
-                                color: 'orange'
-                            }}
-                        >
-                            ⚠️ Admin: Initialiser tout (Provisoire)
-                        </button>
+
                     </div>
                     <div style={{ display: 'flex', gap: '15px' }}>
                         <div
