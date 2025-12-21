@@ -23,33 +23,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
     const relevantEntities = localEntities.filter(e => {
         const s = e.Statuts;
-        // Tombola doesn't necessarily have payment, so we accept "En discussion" or "Confirmé" even without payment logic
-        const isTombola = activeTab === 'Tombola (Lots)';
+        const validStatuses = ['Confirmé (en attente de paiement)', 'Paiement effectué'];
 
-        let isHypotheticallyActive = s === 'Confirmé (en attente de paiement)' || s === 'Paiement effectué';
-
-        // For Tombola, we might want to track even earlier or differently
-        // User said: "trou dans la raquette est pour tombola ou il n'y a pas de paiement"
-        // Implying we shouldn't filter strict on payment statuses for Tombola.
-        // Let's broaden it for Tombola to include "À contacter" or just everything that IS matched type?
-        // Usually tracking implies some level of engagement. Maybe "En discussion" + "Confirmé..."?
-        // Let's try to assume if it is TYPED as Tombola, we want to see it regardless of status? 
-        // Or keep filter but add "En discussion"?
-        // Let's assume validation is needed if Type is set.
-        if (isTombola) {
-            // For Tombola, if it has the Type, we track it. Status is less relevant for the "Link existence".
-            // But usually we don't track "Refusé" or "Sans réponse".
-            const isDead = s === 'Refusé' || s === 'Sans réponse';
-            isHypotheticallyActive = !isDead;
-        }
-
-        // Fix for "Stand with 85€ not showing" -> If Recette > 0, consider it active regardless of status (unless Dead?)
-        // Or just force it active.
-        if (parseFloat(e.Recette) > 0) {
-             isHypotheticallyActive = true;
-        }
-
-        if (!isHypotheticallyActive) return false;
+        // Strict Status Filter: Only show confirmed or paid entities
+        if (!validStatuses.includes(s)) return false;
 
         if (activeTab === 'Stand') {
             if (e.Type === 'Stand') return true;
