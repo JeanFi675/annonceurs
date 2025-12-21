@@ -43,7 +43,11 @@ const FactureModal = ({ isOpen, onClose, entity, tracking, type, onSave, onGener
                 Siret: entity.Siret || '', // Direct mapping to Entity field
                 Facture_Email: tracking?.Facture_Email || tracking?.Email_Contact || '',
                 Facture_Montant: tracking?.Facture_Montant || entity.Recette || '',
-                Facture_Description: intelligentDescription
+                Facture_Description: intelligentDescription,
+                // Try both cases to be safe, preferring the lowercase if user asked for it, or Upper if standard
+                // User asked for "date_paiement" originally.
+                Date_Paiement: tracking?.date_paiement || tracking?.Date_Paiement || '', 
+                Type_Paiement: tracking?.Type_Paiement || tracking?.type_paiement || ''
             });
         }
     }, [isOpen, entity, tracking, type]);
@@ -162,6 +166,33 @@ const FactureModal = ({ isOpen, onClose, entity, tracking, type, onSave, onGener
                                 style={{ width: '100%', padding: '10px', border: '2px solid black', fontFamily: 'inherit' }}
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontWeight: 'bold', display: 'block', fontSize: '0.9rem' }}>Date Paiement (Suivi)</label>
+                        <input
+                            type="date"
+                            name="Date_Paiement"
+                            value={formData.Date_Paiement || ''}
+                            onChange={handleChange}
+                            style={{ width: '100%', padding: '10px', border: '2px solid black', fontFamily: 'inherit' }}
+                        />
+                    </div>
+                     <div>
+                        <label style={{ fontWeight: 'bold', display: 'block', fontSize: '0.9rem' }}>Type Paiement</label>
+                         <select
+                            name="Type_Paiement"
+                            value={formData.Type_Paiement || ''}
+                            onChange={handleChange}
+                            style={{ width: '100%', padding: '10px', border: '2px solid black', fontFamily: 'inherit' }}
+                        >
+                            <option value="">- Sélectionner -</option>
+                            <option value="Virement">Virement</option>
+                            <option value="Chèque">Chèque</option>
+                            <option value="Espèces">Espèces</option>
+                            <option value="Carte Bancaire">Carte Bancaire</option>
+                            <option value="Autre">Autre</option>
+                        </select>
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', gap: '10px' }}>

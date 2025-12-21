@@ -20,8 +20,9 @@ const MecenatModal = ({ isOpen, onClose, entity, tracking, onSave, onGenerate })
                 SIRET: entity.Siret || '',
                 Email: tracking?.Facture_Email || tracking?.Email_Contact || '',
                 Montant: tracking?.Facture_Montant || entity.Recette || '',
-                Forme_Juridique: entity.juridique || tracking?.Forme_Juridique || '', // Mapped to 'juridique' in Entity table
-                Type_Paiement: tracking?.Type_Paiement || ''
+                Forme_Juridique: entity.juridique || '', // Mapped to 'juridique' in Entity table
+                Type_Paiement: tracking?.Type_Paiement || '',
+                Date_Paiement: tracking?.date_paiement || tracking?.Date_Paiement || ''
             });
         }
     }, [isOpen, entity, tracking]);
@@ -144,6 +145,17 @@ const MecenatModal = ({ isOpen, onClose, entity, tracking, onSave, onGenerate })
                                 style={{ width: '100%', padding: '10px', border: '2px solid black', fontFamily: 'inherit' }}
                             />
                         </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontWeight: 'bold', display: 'block', fontSize: '0.9rem' }}>Date Paiement (Suivi)</label>
+                        <input
+                            type="date"
+                            name="Date_Paiement"
+                            value={formData.Date_Paiement || ''}
+                            onChange={handleChange}
+                            style={{ width: '100%', padding: '10px', border: '2px solid black', fontFamily: 'inherit' }}
+                        />
                     </div>
 
                     <div style={{ backgroundColor: '#f0f0f0', padding: '10px', border: '1px dashed #999', marginTop: '10px' }}>

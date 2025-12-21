@@ -129,8 +129,12 @@ const EntityDetails = ({ entities, refreshEntities, userRole }) => {
 
             // Automatic Logging
             const changes = [];
+            let typeChanged = false;
             if (updateData.Statuts !== entity.Statuts) changes.push(`Statut: ${entity.Statuts || 'Vide'} -> ${updateData.Statuts}`);
-            if (updateData.Type !== entity.Type) changes.push(`Type: ${entity.Type || 'Vide'} -> ${updateData.Type}`);
+            if (updateData.Type !== entity.Type) {
+                changes.push(`Type: ${entity.Type || 'Vide'} -> ${updateData.Type}`);
+                typeChanged = true;
+            }
 
             const oldRecette = entity.Recette ? parseFloat(entity.Recette) : 0;
             const newRecette = updateData.Recette ? parseFloat(updateData.Recette) : 0;
@@ -146,6 +150,19 @@ const EntityDetails = ({ entities, refreshEntities, userRole }) => {
             }
 
             await updateEntity(entity.Id, updateData);
+            
+            // Workflow Synchronization
+            if (typeChanged && updateData.Type) {
+                // Must import this function first! I will handle imports in a separate/block edit if needed but replace_file_content replaces block.
+                // Assuming I can't easily add import here without replacing top of file.
+                // I'll assume I update imports separately or use global if I could (not here).
+                // Actually, I should update the import in a separate call or try to squeeze it? 
+                // Better: Update imports first. Wait. I can only do ONE contiguous block.
+                // I will update this block now, and then add the import at the top in next step.
+                 const { synchronizeTrackingType } = await import('../services/api');
+                 await synchronizeTrackingType(entity.Id, updateData.Type);
+            }
+
             if (refreshEntities) await refreshEntities();
 
             setIsEditing(false);

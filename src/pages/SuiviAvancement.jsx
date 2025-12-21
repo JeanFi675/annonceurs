@@ -43,6 +43,12 @@ const SuiviAvancement = ({ entities, userRole }) => {
             isHypotheticallyActive = !isDead;
         }
 
+        // Fix for "Stand with 85€ not showing" -> If Recette > 0, consider it active regardless of status (unless Dead?)
+        // Or just force it active.
+        if (parseFloat(e.Recette) > 0) {
+             isHypotheticallyActive = true;
+        }
+
         if (!isHypotheticallyActive) return false;
 
         if (activeTab === 'Stand') {
@@ -99,7 +105,10 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
             // 1. Prepare Tracking Payload (Suivi)
             const trackingPayload = {
-                Email_Contact: formData.Facture_Email
+                Email_Contact: formData.Facture_Email,
+                date_paiement: formData.Date_Paiement, // NocoDB likely 'date_paiement'
+                Date_Paiement: formData.Date_Paiement, // Legacy/Safety
+                Type_Paiement: formData.Type_Paiement
             };
 
             // 2. Prepare Entity Payload (Annonceur / Liste de contact)
@@ -167,7 +176,9 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
             // 1. Prepare Tracking Payload
             const trackingPayload = {
-                Email_Contact: formData.Email
+                Email_Contact: formData.Email,
+                date_paiement: formData.Date_Paiement, // Lowercase match
+                Date_Paiement: formData.Date_Paiement // Safety
                 // We don't save Forme_Juridique here unless we have a specific field, defaulting to just Email update on tracking side
             };
 
@@ -753,6 +764,14 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                                     onChange={(e) => handleUpdate(trackId, 'Nombre_Chaises', e.target.value, entity.Id)}
                                                     style={{ width: '60px', padding: '5px', fontSize: '0.8rem', border: '1px dashed black' }}
                                                 />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Jours"
+                                                    value={tracking?.nb_jour ?? ''}
+                                                    onChange={(e) => handleUpdate(trackId, 'nb_jour', e.target.value, entity.Id)}
+                                                    style={{ width: '50px', padding: '5px', fontSize: '0.8rem', border: '1px dashed black', backgroundColor: '#eef2ff' }}
+                                                    title="Nombre de jours"
+                                                />
                                             </div>
                                         )}
                                     </div>
@@ -773,6 +792,19 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Date Paiement Display */}
+                                {tracking?.Date_Paiement && (
+                                    <div style={{ 
+                                        marginTop: '5px', 
+                                        fontSize: '0.8rem', 
+                                        color: '#15803d', 
+                                        fontWeight: 'bold', 
+                                        textAlign: 'right' 
+                                    }}>
+                                        Payé le : {new Date(tracking.Date_Paiement).toLocaleDateString()}
+                                    </div>
+                                )}
 
                                 {!complete && missing.length > 0 && (
                                     <div style={{
