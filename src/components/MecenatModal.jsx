@@ -12,6 +12,18 @@ const MecenatModal = ({ isOpen, onClose, entity, tracking, onSave, onGenerate })
         Type_Paiement: '' // Read-only from tracking mostly
     });
 
+    // Helper to parse DD/MM/YYYY to YYYY-MM-DD
+    const parseDateToIso = (dateStr) => {
+        if (!dateStr) return '';
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            const [day, month, year] = parts;
+            return `${year}-${month}-${day}`;
+        }
+        return '';
+    };
+
     useEffect(() => {
         if (isOpen && entity) {
             setFormData({
@@ -22,7 +34,7 @@ const MecenatModal = ({ isOpen, onClose, entity, tracking, onSave, onGenerate })
                 Montant: tracking?.Facture_Montant || entity.Recette || '',
                 Forme_Juridique: entity.juridique || '', // Mapped to 'juridique' in Entity table
                 Type_Paiement: tracking?.Type_Paiement || '',
-                Date_Paiement: tracking?.date_paiement || tracking?.Date_Paiement || ''
+                Date_Paiement: parseDateToIso(tracking?.date_paiement || tracking?.Date_Paiement || '')
             });
         }
     }, [isOpen, entity, tracking]);

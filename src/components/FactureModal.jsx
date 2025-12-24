@@ -11,6 +11,18 @@ const FactureModal = ({ isOpen, onClose, entity, tracking, type, onSave, onGener
         Facture_Description: ''
     });
 
+    // Helper to parse DD/MM/YYYY to YYYY-MM-DD
+    const parseDateToIso = (dateStr) => {
+        if (!dateStr) return '';
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) return dateStr;
+        const parts = dateStr.split('/');
+        if (parts.length === 3) {
+            const [day, month, year] = parts;
+            return `${year}-${month}-${day}`;
+        }
+        return '';
+    };
+
     useEffect(() => {
         if (isOpen && entity) {
             let intelligentDescription = tracking?.Facture_Description || '';
@@ -46,7 +58,7 @@ const FactureModal = ({ isOpen, onClose, entity, tracking, type, onSave, onGener
                 Facture_Description: intelligentDescription,
                 // Try both cases to be safe, preferring the lowercase if user asked for it, or Upper if standard
                 // User asked for "date_paiement" originally.
-                Date_Paiement: tracking?.date_paiement || tracking?.Date_Paiement || '', 
+                Date_Paiement: parseDateToIso(tracking?.date_paiement || tracking?.Date_Paiement || ''), 
                 Type_Paiement: tracking?.Type_Paiement || tracking?.type_paiement || ''
             });
         }

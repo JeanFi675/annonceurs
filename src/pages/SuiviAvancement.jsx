@@ -6,6 +6,28 @@ import MecenatModal from '../components/MecenatModal';
 
 const TYPES = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stand'];
 
+// --- Helpers for Date Formatting (DD/MM/YYYY <-> YYYY-MM-DD) ---
+const formatDateForApi = (isoDateString) => {
+    if (!isoDateString) return '';
+    const [year, month, day] = isoDateString.split('-');
+    if (!year || !month || !day) return isoDateString; // Return as is if format unexpected
+    return `${day}/${month}/${year}`;
+};
+
+const parseDateFromApi = (apiDateString) => {
+    if (!apiDateString) return '';
+    // Check if already in YYYY-MM-DD (ISO) format
+    if (apiDateString.match(/^\d{4}-\d{2}-\d{2}$/)) return apiDateString;
+    
+    // Check if in DD/MM/YYYY format
+    const parts = apiDateString.split('/');
+    if (parts.length === 3) {
+        const [day, month, year] = parts;
+        return `${year}-${month}-${day}`;
+    }
+    return ''; // Unknown format
+};
+
 const SuiviAvancement = ({ entities, userRole }) => {
     const [activeTab, setActiveTab] = useState(TYPES[0]);
     const [trackingData, setTrackingData] = useState({});
@@ -83,8 +105,8 @@ const SuiviAvancement = ({ entities, userRole }) => {
             // 1. Prepare Tracking Payload (Suivi)
             const trackingPayload = {
                 Email_Contact: formData.Facture_Email,
-                date_paiement: formData.Date_Paiement, // NocoDB likely 'date_paiement'
-                Date_Paiement: formData.Date_Paiement, // Legacy/Safety
+                date_paiement: formData.Date_Paiement ? formatDateForApi(formData.Date_Paiement) : null, // Convert YYYY-MM-DD to DD/MM/YYYY
+                Date_Paiement: formData.Date_Paiement ? formatDateForApi(formData.Date_Paiement) : null, // Legacy/Safety
                 Type_Paiement: formData.Type_Paiement
             };
 
@@ -161,8 +183,8 @@ const SuiviAvancement = ({ entities, userRole }) => {
             // 1. Prepare Tracking Payload
             const trackingPayload = {
                 Email_Contact: formData.Email,
-                date_paiement: formData.Date_Paiement, // Lowercase match
-                Date_Paiement: formData.Date_Paiement // Safety
+                date_paiement: formData.Date_Paiement ? formatDateForApi(formData.Date_Paiement) : null, // Lowercase match
+                Date_Paiement: formData.Date_Paiement ? formatDateForApi(formData.Date_Paiement) : null // Safety
                 // We don't save Forme_Juridique here unless we have a specific field, defaulting to just Email update on tracking side
             };
 
@@ -218,18 +240,26 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
     const handleUpdate = async (trackingId, field, value, entityId) => {
         try {
+            // New logic for Date formatting
+            let apiValue = value;
+            if (field === 'date_paiement' || field === 'Date_Paiement') {
+                apiValue = formatDateForApi(value);
+            }
+
             if (trackingId) {
                 setTrackingData(prev => ({
                     ...prev,
-                    [activeTab]: prev[activeTab].map(r => r.Id === trackingId ? { ...r, [field]: value } : r)
+                    [activeTab]: prev[activeTab].map(r => r.Id === trackingId ? { ...r, [field]: apiValue } : r) // Store API format in state effectively or maybe we should keep display format? 
+                    // Actually, for local state, better to store what API returns so consistency.
+                    // But for inputs, we parse it.
                 }));
-                await updateTrackingRecord(activeTab, trackingId, { [field]: value });
+                await updateTrackingRecord(activeTab, trackingId, { [field]: apiValue });
             } else {
                 // Find entity title for valid creation
                 const entity = relevantEntities.find(e => e.Id === entityId);
                 const newRecord = {
                     Titre: entity?.title || 'Suivi',
-                    [field]: value
+                    [field]: apiValue
                 };
                 const created = await createAndLinkRecord(activeTab, newRecord, entityId);
 
@@ -371,6 +401,9 @@ const SuiviAvancement = ({ entities, userRole }) => {
             return tracking?.Lot_Recupere === true && tracking?.Logo_Recu === true;
         }
 
+        // UNIVERSAL CHECK (except Tombola): Payment Received must be TRUE
+        if (tracking?.Paiement_recu !== true) return false;
+
         if (activeTab === 'Stand' && entity.Type !== 'Stand') {
             // Partner-Stand: Validation based on Stand actions
             // Require Tables and Chairs to be filled (not undefined/null/empty string)
@@ -397,12 +430,16 @@ const SuiviAvancement = ({ entities, userRole }) => {
             if (packs.includes('Stand 3x3m')) ok = ok && tracking?.Stand_Inscrit === true;
 
             // Payment proof always required unless free? Assuming proof required for partners too.
+            // Removed strict money check here as we have universal check above, but proof might still be needed?
+            // User requested "Paiement_recu" as A condition.
+            // Let's keep the proof requirement if logic dictates, essentially AND-ing them.
             const paid = tracking?.Type_Paiement && tracking?.Type_Paiement !== '';
             const moneyOK = paid || tracking?.Preuve_Paiement_Transmise;
+            
             return ok && moneyOK;
         }
 
-        // Base requirement: Paid or Proof sent
+        // Base requirement for remaining types (Mécénat, Stand-only)
         // For Mecenat: Cerfa_Envoye counts as Proof
         const paid = tracking?.Type_Paiement && tracking?.Type_Paiement !== '';
         const mecenatProof = activeTab === 'Mécénat' && tracking?.Cerfa_Envoye === true;
@@ -419,6 +456,11 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
     const getMissingActions = (entity, tracking) => {
         const actions = [];
+        
+        // Check Paiement_recu first
+        if (activeTab !== 'Tombola (Lots)' && tracking?.Paiement_recu !== true) {
+             actions.push("Paiement non reçu");
+        }
 
         if (activeTab === 'Stand' && entity.Type !== 'Stand') {
             const hasTables = tracking?.Nombre_Tables !== undefined && tracking?.Nombre_Tables !== null && String(tracking?.Nombre_Tables).trim() !== '';
@@ -432,7 +474,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
         if (activeTab !== 'Tombola (Lots)' && !(activeTab === 'Stand' && entity.Type !== 'Stand')) {
             const paid = tracking?.Type_Paiement && tracking?.Type_Paiement !== '';
-            if (!paid) actions.push("Paiement manquant");
+            if (!paid) actions.push("Type Paiement manquant");
         }
 
         switch (activeTab) {
@@ -741,17 +783,27 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                 </div>
 
                                 {/* Date Paiement Display */}
-                                {tracking?.Date_Paiement && (
-                                    <div style={{ 
-                                        marginTop: '5px', 
-                                        fontSize: '0.8rem', 
-                                        color: '#15803d', 
-                                        fontWeight: 'bold', 
-                                        textAlign: 'right' 
-                                    }}>
-                                        Payé le : {new Date(tracking.Date_Paiement).toLocaleDateString()}
-                                    </div>
-                                )}
+                                <div style={{ 
+                                    marginTop: '5px', 
+                                    display: 'flex', 
+                                    justifyContent: 'flex-end',
+                                    alignItems: 'center',
+                                    gap: '5px'
+                                }}>
+                                    <label style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Payé le :</label>
+                                    <input 
+                                        type="date" 
+                                        value={parseDateFromApi(tracking?.date_paiement || tracking?.Date_Paiement)} 
+                                        onChange={(e) => handleUpdate(trackId, 'date_paiement', e.target.value, entity.Id)}
+                                        style={{ 
+                                            fontSize: '0.8rem', 
+                                            padding: '2px', 
+                                            border: '1px solid #ccc',
+                                            color: (tracking?.date_paiement || tracking?.Date_Paiement) ? '#15803d' : 'inherit',
+                                            fontWeight: (tracking?.date_paiement || tracking?.Date_Paiement) ? 'bold' : 'normal'
+                                        }}
+                                    />
+                                </div>
 
                                 {!complete && missing.length > 0 && (
                                     <div style={{
@@ -891,6 +943,15 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
                                     {activeTab !== 'Tombola (Lots)' && !(activeTab === 'Stand' && entity.Type !== 'Stand') && (
                                         <div style={{ flexDirection: 'column', gap: '10px', borderTop: '1px dashed #ccc', paddingTop: '10px' }}>
+                                            {/* Paiement Recu Toggle */}
+                                            <div style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px dashed #eee' }}>
+                                                 <ToggleButton
+                                                    label="Paiement Reçu (Banque) ?"
+                                                    checked={tracking?.Paiement_recu}
+                                                    onChange={(val) => handleUpdate(trackId, 'Paiement_recu', val, entity.Id)}
+                                                />
+                                            </div>
+
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
                                                 <div>
                                                     <label style={{ fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Paiement</label>
