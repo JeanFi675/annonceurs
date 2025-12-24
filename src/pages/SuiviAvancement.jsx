@@ -88,14 +88,17 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 Type_Paiement: formData.Type_Paiement
             };
 
+            console.log("Saving Invoice - Update Tracking Payload:", trackingPayload);
+
             // 2. Prepare Entity Payload (Annonceur / Liste de contact)
             const entityPayload = {
-                Siret: formData.Siret,
-                Recette: formData.Facture_Montant,
-                address: formData.Facture_Adresse,
+                Siret: formData.Siret || null, // Send null if empty
+                Recette: formData.Facture_Montant ? parseFloat(formData.Facture_Montant) : 0, // Ensure number
+                address: formData.Facture_Adresse ? formData.Facture_Adresse.trim() : '',
                 title: formData.Facture_Nom
             };
 
+            console.log("Saving Invoice - Update Entity Payload:", entityPayload);
 
             // A. Update Tracking Record
             if (trackId) {
@@ -123,7 +126,11 @@ const SuiviAvancement = ({ entities, userRole }) => {
 
             // B. Update Entity Record
             if (entityId) {
+                console.log(`Updating Entity ${entityId} with payload:`, entityPayload);
                 await updateEntity(entityId, entityPayload);
+                
+                // Optimistic Local Update
+                setLocalEntities(prev => prev.map(e => e.Id === entityId ? { ...e, ...entityPayload } : e));
             }
 
             // alert("Informations de facturation enregistrées !");

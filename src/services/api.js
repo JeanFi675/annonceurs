@@ -64,10 +64,12 @@ export const updateEntity = async (id, data) => {
       return null;
     }
 
-    // NocoDB v2 Bulk Update format: PATCH /records with body { Id: id, ...data }
+    // NocoDB v2 Bulk Update format: PATCH /records with body [{ Id: id, ...data }]
+    // Ensure ID is a number and wrap in array
+    const numericId = parseInt(id, 10);
     const response = await axios.patch(
       API_URL,
-      { Id: id, ...data },
+      [{ Id: numericId, ...data }],
       {
         headers: {
           "xc-token": token,
@@ -75,7 +77,8 @@ export const updateEntity = async (id, data) => {
         },
       }
     );
-
+    
+    console.log("Update Record Response:", response.data);
     return response.data;
   } catch (error) {
     console.error("Error updating entity:", error);
@@ -145,10 +148,11 @@ export const updateTrackingRecord = async (type, id, data) => {
   const token = import.meta.env.VITE_API_TOKEN;
   const url = `${BASE_API_URL}/${config.tableId}/records`;
 
-  // NocoDB v2 Update: PATCH body { Id: id, ...data }
+  // NocoDB v2 Update: PATCH body [{ Id: id, ...data }]
+  const numericId = parseInt(id, 10);
   const response = await axios.patch(
     url,
-    { Id: id, ...data },
+    [{ Id: numericId, ...data }],
     {
       headers: { "xc-token": token, "Content-Type": "application/json" },
     }
