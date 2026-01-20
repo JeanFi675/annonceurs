@@ -341,6 +341,32 @@ const BrochureAdmin = () => {
         return !hasPage && !e._hasVisual;
     }).length;
 
+    // Detailed Stats Calculation
+    const stats = {
+        '1/8': { total: 0, validated: 0 },
+        '1/4': { total: 0, validated: 0 },
+        '1/2': { total: 0, validated: 0 },
+        '1/1': { total: 0, validated: 0 }
+    };
+
+    sortedEntities.forEach(e => {
+        const data = adminData[e.Id] || {};
+        const size = data.size || "1/4";
+        const isValidated = data.page && data.page.trim() !== '';
+        
+        if (stats[size]) {
+            stats[size].total++;
+            if (isValidated) stats[size].validated++;
+        }
+    });
+
+    const totalPagesEquivalent = (
+        (stats['1/8'].total * 0.125) +
+        (stats['1/4'].total * 0.25) +
+        (stats['1/2'].total * 0.5) +
+        (stats['1/1'].total * 1)
+    );
+
     if (loading) return <div style={{padding: '20px'}}>Chargement...</div>;
 
     return (
@@ -382,6 +408,28 @@ const BrochureAdmin = () => {
                 <div style={{ flex: 1, padding: '15px', border: '1px solid #000', backgroundColor: 'rgba(255, 165, 0, 0.3)' }}>
                     <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{missing}</div>
                     <div style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Visuel Manquant (Orange)</div>
+                </div>
+            </div>
+
+            {/* Detailed Stats Breakdown */}
+            <div style={{ marginBottom: '30px', padding: '15px', border: '1px solid #000', backgroundColor: '#fff' }}>
+                <h3 style={{ marginTop: 0 }}>Détail par format</h3>
+                <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div>
+                        <strong>1/8 :</strong> {stats['1/8'].total} <span style={{color: 'green'}}>({stats['1/8'].validated} validés)</span>
+                    </div>
+                    <div>
+                        <strong>1/4 :</strong> {stats['1/4'].total} <span style={{color: 'green'}}>({stats['1/4'].validated} validés)</span>
+                    </div>
+                    <div>
+                        <strong>1/2 :</strong> {stats['1/2'].total} <span style={{color: 'green'}}>({stats['1/2'].validated} validés)</span>
+                    </div>
+                    <div>
+                        <strong>1/1 :</strong> {stats['1/1'].total} <span style={{color: 'green'}}>({stats['1/1'].validated} validés)</span>
+                    </div>
+                    <div style={{ marginLeft: 'auto', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                        Total Équivalent Pages : {Number(totalPagesEquivalent)}
+                    </div>
                 </div>
             </div>
 
