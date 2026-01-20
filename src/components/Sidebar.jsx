@@ -492,6 +492,9 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                             </Link>
                         </>
                     )}
+                    <Link to="/bilan" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'green', fontWeight: 'bold' }}>
+                        Bilan
+                    </Link>
                     <Link to="/history" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'var(--brutal-black)' }}>
                         Historique
                     </Link>

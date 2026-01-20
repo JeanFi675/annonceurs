@@ -6,6 +6,7 @@ import EntityDetails from './pages/EntityDetails';
 import History from './pages/History';
 import Dashboard from './pages/Dashboard';
 import SuiviAvancement from './pages/SuiviAvancement';
+import BilanFinancier from './pages/BilanFinancier';
 import Login from './components/Login';
 import { fetchEntities } from './services/api';
 
@@ -131,6 +132,7 @@ function App() {
         <Route path="/history" element={<History />} />
         <Route path="/dashboard" element={<Dashboard entities={entities} />} />
         <Route path="/suivi" element={<SuiviAvancement entities={entities} userRole={userRole} />} />
+        <Route path="/bilan" element={<BilanFinancier entities={entities} />} />
       </Routes>
     </Router>
   );
