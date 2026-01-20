@@ -479,9 +479,19 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
 
     return (
         <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Filtres</h2>
-                <div style={{ display: 'flex', gap: '10px' }}>
+            <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <h2 style={{ fontSize: '1.5rem', margin: 0 }}>Filtres</h2>
+                </div>
+                
+                <div style={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: '10px', 
+                    marginBottom: '10px',
+                    borderBottom: '2px solid black',
+                    paddingBottom: '10px'
+                }}>
                     {userRole === 'ADMIN' && (
                         <>
                             <Link to="/dashboard" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'red', fontWeight: 'bold' }}>
@@ -489,6 +499,9 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                             </Link>
                             <Link to="/suivi" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'blue', fontWeight: 'bold' }}>
                                 Suivi
+                            </Link>
+                            <Link to="/brochure-admin" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'purple', fontWeight: 'bold' }}>
+                                Brochure
                             </Link>
                         </>
                     )}

@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import SuiviAvancement from './pages/SuiviAvancement';
 import BilanFinancier from './pages/BilanFinancier';
 import Login from './components/Login';
+import BrochureAdmin from './pages/BrochureAdmin';
 import { fetchEntities } from './services/api';
 
 function App() {
@@ -133,6 +134,7 @@ function App() {
         <Route path="/dashboard" element={<Dashboard entities={entities} />} />
         <Route path="/suivi" element={<SuiviAvancement entities={entities} userRole={userRole} />} />
         <Route path="/bilan" element={<BilanFinancier entities={entities} />} />
+        <Route path="/brochure-admin" element={<BrochureAdmin />} />
       </Routes>
     </Router>
   );
