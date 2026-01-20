@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { fetchEntities, fetchTrackingData, updateTrackingRecord } from '../services/api';
 
 const BrochureAdmin = () => {
+    const navigate = useNavigate();
     const [entities, setEntities] = useState([]);
     const [loading, setLoading] = useState(true);
     
@@ -319,13 +321,70 @@ const BrochureAdmin = () => {
         return "<!-- Format inconnu -->";
     };
 
+    // Metrics Calculation
+    const total = sortedEntities.length;
+    const validated = sortedEntities.filter(e => {
+        const data = adminData[e.Id] || {};
+        return data.page && data.page.trim() !== '';
+    }).length;
+    
+    // Logic matches the sort/color logic
+    const ready = sortedEntities.filter(e => {
+        const data = adminData[e.Id] || {};
+        const hasPage = data.page && data.page.trim() !== '';
+        return !hasPage && e._hasVisual;
+    }).length;
+    
+    const missing = sortedEntities.filter(e => {
+        const data = adminData[e.Id] || {};
+        const hasPage = data.page && data.page.trim() !== '';
+        return !hasPage && !e._hasVisual;
+    }).length;
+
     if (loading) return <div style={{padding: '20px'}}>Chargement...</div>;
 
     return (
         <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-            <h1 style={{ marginBottom: '20px', fontSize: '2rem', borderBottom: '4px solid black', display: 'inline-block' }}>
-                Administration Brochure
-            </h1>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '4px solid black' }}>
+                <h1 style={{ fontSize: '2rem', margin: 0 }}>
+                    Administration Brochure
+                </h1>
+                <button 
+                    onClick={() => navigate('/')}
+                    style={{
+                        padding: '10px 20px',
+                        backgroundColor: 'black',
+                        color: 'white',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '1rem'
+                    }}
+                >
+                    ← Retour Carte
+                </button>
+            </div>
+            
+            {/* Summary Dashboard */}
+            <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
+                <div style={{ flex: 1, padding: '15px', border: '1px solid #000', backgroundColor: '#f9f9f9' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{total}</div>
+                    <div style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Total Encarts</div>
+                </div>
+                <div style={{ flex: 1, padding: '15px', border: '1px solid #000', backgroundColor: 'rgba(0, 255, 0, 0.2)' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{validated}</div>
+                    <div style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Validés (Vert)</div>
+                </div>
+                <div style={{ flex: 1, padding: '15px', border: '1px solid #000', backgroundColor: 'rgba(255, 255, 0, 0.2)' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{ready}</div>
+                    <div style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Prêts (Jaune)</div>
+                </div>
+                <div style={{ flex: 1, padding: '15px', border: '1px solid #000', backgroundColor: 'rgba(255, 165, 0, 0.3)' }}>
+                    <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{missing}</div>
+                    <div style={{ fontSize: '0.9rem', textTransform: 'uppercase' }}>Visuel Manquant (Orange)</div>
+                </div>
+            </div>
+
             <p style={{marginBottom: '20px'}}>
                 Outil de suivi pour l'intégration des encarts publicitaires.
                 Les numéros de page sont sauvegardés directement dans la base de données.
