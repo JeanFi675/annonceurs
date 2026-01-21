@@ -280,42 +280,31 @@ const BrochureAdmin = () => {
         const data = adminData[id] || {};
         const filename = generateFilename(entity, id);
         const size = data.size || "1/4"; // Default
-        const position = data.position || "left"; // Default
         const extension = data.extension || ".jpg";
+        const rotation = data.rotation || ""; // Default no rotation
 
         const title = entity.title || "Publicité";
+        const imgClass = `ad-img ${rotation}`.trim();
 
         if (size === "1/1") {
-             return `<div class="ad-page">
-  <img src="pub/1/${filename}${extension}" alt="${title}" style="width:100%; height:100%; object-fit:cover;" />
-</div>`;
+             // Pas de conteneur spécifique pour 1/1
+             return `<img src="pub/1/${filename}${extension}" alt="${title}" class="${imgClass}" style="width:100%; height:100%; object-fit:cover;" />`;
         }
         
         if (size === "1/8") {
-             // 1/8 Logic - Retaining the logic that provides the wrapper as requested
-             if (position === 'left') {
-                 return `<div class="ad-row-1-4">
-  <div class="ad-slot w-half"><img src="pub/0.125/${filename}${extension}" alt="${title}" /></div>
-  <!-- <div class="ad-slot w-half">...</div> -->
+             // 1/8 Logic - Conteneur cols2
+             return `<!-- 1 ligne : 2 pub 1/8 -->
+<div class="cols2">
+  <img src="pub/0.125/${filename}${extension}" alt="${title}" class="${imgClass}">
 </div>`;
-             } else {
-                  return `<div class="ad-row-1-4">
-  <!-- <div class="ad-slot w-half">...</div> -->
-  <div class="ad-slot w-half"><img src="pub/0.125/${filename}${extension}" alt="${title}" /></div>
-</div>`;
-             }
         }
 
         if (size === "1/4") {
-            return `<div class="ad-row-1-4">
-  <div class="ad-slot w-full"><img src="pub/0.25/${filename}${extension}" alt="${title}" /></div>
-</div>`;
+            return `<img src="pub/0.25/${filename}${extension}" alt="${title}" class="${imgClass}">`;
         }
 
         if (size === "1/2") {
-            return `<div class="ad-row-1-2">
-  <div class="ad-slot w-full"><img src="pub/0.5/${filename}${extension}" alt="${title}" /></div>
-</div>`;
+            return `<img src="pub/0.5/${filename}${extension}" alt="${title}" class="${imgClass}">`;
         }
         
         return "<!-- Format inconnu -->";
@@ -516,19 +505,7 @@ const BrochureAdmin = () => {
                                         </select>
                                     </div>
                                     
-                                    {(data.size === '1/8') && (
-                                        <div style={{ marginTop: '5px' }}>
-                                            <label style={{display: 'block', fontSize: '0.8rem', fontWeight: 'bold'}}>Position:</label>
-                                            <select 
-                                                value={data.position || "left"}
-                                                onChange={(e) => handleDataChange(id, 'position', e.target.value)}
-                                                style={{ width: '100%', padding: '5px' }}
-                                            >
-                                                <option value="left">Gauche</option>
-                                                <option value="right">Droite</option>
-                                            </select>
-                                        </div>
-                                    )}
+
                                 </td>
 
                                 <td style={{ padding: '10px', verticalAlign: 'top', width: '250px' }}>
@@ -553,11 +530,24 @@ const BrochureAdmin = () => {
                                     <select 
                                         value={data.extension || ".jpg"}
                                         onChange={(e) => handleDataChange(id, 'extension', e.target.value)}
-                                        style={{ width: '100%', padding: '5px' }}
+                                        style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
                                     >
                                         <option value=".jpg">.jpg</option>
                                         <option value=".png">.png</option>
                                         <option value=".jpeg">.jpeg</option>
+                                    </select>
+
+                                    <label style={{display: 'block', fontSize: '0.8rem', fontWeight: 'bold'}}>Rotation:</label>
+                                    <select 
+                                        value={data.rotation || ""}
+                                        onChange={(e) => handleDataChange(id, 'rotation', e.target.value)}
+                                        style={{ width: '100%', padding: '5px' }}
+                                    >
+                                        <option value="">Aucune</option>
+                                        <option value="rot-p1">Rot +1.5° (p1)</option>
+                                        <option value="rot-m1">Rot -1.5° (m1)</option>
+                                        <option value="rot-p2">Rot +3° (p2)</option>
+                                        <option value="rot-m2">Rot -3° (m2)</option>
                                     </select>
                                 </td>
 
