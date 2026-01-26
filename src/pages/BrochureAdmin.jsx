@@ -217,6 +217,15 @@ const BrochureAdmin = () => {
                 return scoreA - scoreB;
             }
             
+            // Si les deux sont validés (Score 2), on trie par numéro de page
+            if (scoreA === 2) {
+                const pageA = parseInt(dataA.page, 10) || 0;
+                const pageB = parseInt(dataB.page, 10) || 0;
+                if (pageA !== pageB) {
+                    return pageA - pageB;
+                }
+            }
+            
             // Secondary Sort: Alphabetical Title
             const titleA = (a.title || "").toLowerCase();
             const titleB = (b.title || "").toLowerCase();
