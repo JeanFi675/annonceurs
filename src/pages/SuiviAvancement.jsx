@@ -8,10 +8,11 @@ const TYPES = ['Encart Pub', 'Tombola (Lots)', 'Partenaires', 'Mécénat', 'Stan
 
 // --- Helpers for Date Formatting (DD/MM/YYYY <-> YYYY-MM-DD) ---
 const formatDateForApi = (isoDateString) => {
-    if (!isoDateString) return '';
-    const [year, month, day] = isoDateString.split('-');
-    if (!year || !month || !day) return isoDateString; // Return as is if format unexpected
-    return `${day}/${month}/${year}`;
+    // NocoDB expects dates in YYYY-MM-DD (ISO) format
+    if (!isoDateString) return null;
+    // Validate it's a proper date format, otherwise return null
+    if (!isoDateString.match(/^\d{4}-\d{2}-\d{2}$/)) return null;
+    return isoDateString;
 };
 
 const parseDateFromApi = (apiDateString) => {
