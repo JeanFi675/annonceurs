@@ -9,6 +9,7 @@ import SuiviAvancement from './pages/SuiviAvancement';
 import BilanFinancier from './pages/BilanFinancier';
 import Login from './components/Login';
 import BrochureAdmin from './pages/BrochureAdmin';
+import SuiviPaiement from './pages/SuiviPaiement';
 import { fetchEntities } from './services/api';
 
 function App() {
@@ -135,6 +136,7 @@ function App() {
         <Route path="/suivi" element={<SuiviAvancement entities={entities} userRole={userRole} />} />
         <Route path="/bilan" element={<BilanFinancier entities={entities} />} />
         <Route path="/brochure-admin" element={<BrochureAdmin />} />
+        <Route path="/suivi-paiement" element={<SuiviPaiement entities={entities} refreshEntities={loadData} userRole={userRole} />} />
       </Routes>
     </Router>
   );

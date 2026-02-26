@@ -503,6 +503,9 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                             <Link to="/brochure-admin" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'purple', fontWeight: 'bold' }}>
                                 Brochure
                             </Link>
+                            <Link to="/suivi-paiement" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'darkorange', fontWeight: 'bold' }}>
+                                Paiements
+                            </Link>
                         </>
                     )}
                     <Link to="/bilan" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'green', fontWeight: 'bold' }}>
