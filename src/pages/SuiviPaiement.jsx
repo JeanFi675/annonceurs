@@ -87,6 +87,55 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
       });
   };
 
+  const getStatus = (entity, tracking) => {
+      const amt = parseFloat(entity.Recette) || 0;
+      if (amt === 0) return "valid";
+      
+      const modePaiement = tracking?.Type_Paiement || "";
+      const datePaiement = tracking?.date_paiement || tracking?.Date_Paiement || "";
+      
+      const mode = modePaiement.toLowerCase();
+      const isChequeOrEspece = mode.includes("chèque") || mode.includes("espèce");
+      const hasDate = !!datePaiement;
+      const hasRemise = !!entity.Numero_de_remise;
+      
+      if (hasDate) {
+          if (isChequeOrEspece) {
+              if (hasRemise) return "valid";
+              else return "intermediate";
+          } else {
+              return "valid";
+          }
+      }
+      return "pending";
+  };
+
+  const sortedEntities = [...filteredEntities].sort((a, b) => {
+      const trackingA = getTrackingRecord(a);
+      const trackingB = getTrackingRecord(b);
+      
+      const statusA = getStatus(a, trackingA);
+      const statusB = getStatus(b, trackingB);
+      
+      // 1. Validés en bas
+      if (statusA === "valid" && statusB !== "valid") return 1;
+      if (statusA !== "valid" && statusB === "valid") return -1;
+      
+      // 2. Tri par Type
+      const typeA = a.Type || "";
+      const typeB = b.Type || "";
+      if (typeA < typeB) return -1;
+      if (typeA > typeB) return 1;
+      
+      // 3. Tri par Ordre Alpha Entité
+      const titleA = (a.title || "").toLowerCase();
+      const titleB = (b.title || "").toLowerCase();
+      if (titleA < titleB) return -1;
+      if (titleA > titleB) return 1;
+      
+      return 0;
+  });
+
   const handleEditClick = (entity) => {
     setEditingId(entity.Id);
     const tracking = getTrackingRecord(entity);
@@ -270,12 +319,24 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredEntities.map((entity) => {
+              {sortedEntities.map((entity) => {
                 
                 const tracking = getTrackingRecord(entity);
                 const modePaiement = tracking?.Type_Paiement || "";
                 const datePaiement = tracking?.date_paiement || tracking?.Date_Paiement || "";
+                const status = getStatus(entity, tracking);
                 
+                let bgColor = "transparent";
+                if (editingId === entity.Id) {
+                    bgColor = "#f0fdf4"; // Light Green for editing
+                } else if (status === "valid") {
+                    bgColor = "#dcfce7"; // Validated (Green)
+                } else if (status === "intermediate") {
+                    bgColor = "#fef08a"; // Intermediate (Yellow)
+                } else if (status === "pending") {
+                    bgColor = "#fee2e2"; // Pending (Red)
+                }
+
                 const currentMode = editingId === entity.Id ? formData.Mode_de_paiement.toLowerCase() : modePaiement.toLowerCase();
                 const isChequeOrEspece =
                   currentMode.includes("chèque") ||
@@ -285,8 +346,7 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
                   <tr
                     key={entity.Id}
                     style={{
-                      backgroundColor:
-                        editingId === entity.Id ? "#f0fdf4" : "transparent",
+                      backgroundColor: bgColor,
                     }}
                   >
                     <td style={{ ...tdStyle, fontWeight: "bold" }}>
@@ -410,7 +470,7 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
                   </tr>
                 );
               })}
-              {filteredEntities.length === 0 && (
+              {sortedEntities.length === 0 && (
                 <tr>
                   <td
                     colSpan="7"
