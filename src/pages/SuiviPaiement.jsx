@@ -27,6 +27,9 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
   const [trackingData, setTrackingData] = useState({});
   const [isLoadingTracking, setIsLoadingTracking] = useState(false);
   
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [sortConfig, setSortConfig] = useState({ key: "status", direction: "asc" });
+
   const [formData, setFormData] = useState({
     Date_de_paiement: "",
     Numero_de_remise: "",
@@ -110,31 +113,124 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
       return "pending";
   };
 
-  const sortedEntities = [...filteredEntities].sort((a, b) => {
-      const trackingA = getTrackingRecord(a);
-      const trackingB = getTrackingRecord(b);
+  const entitiesWithStatus = filteredEntities.map(entity => {
+      const tracking = getTrackingRecord(entity);
+      return {
+          ...entity,
+          calculatedStatus: getStatus(entity, tracking),
+          tracking
+      };
+  });
+
+  const filteredByStatus = filterStatus === "all" 
+      ? entitiesWithStatus 
+      : entitiesWithStatus.filter(e => e.calculatedStatus === filterStatus);
+
+  const sortedEntities = [...filteredByStatus].sort((a, b) => {
+      const { key, direction } = sortConfig;
+      const modifier = direction === 'asc' ? 1 : -1;
       
-      const statusA = getStatus(a, trackingA);
-      const statusB = getStatus(b, trackingB);
+      if (key === 'status') {
+          // Status order priority definition
+          const statusOrder = { pending: 1, intermediate: 2, valid: 3 };
+          const valA = statusOrder[a.calculatedStatus] || 0;
+          const valB = statusOrder[b.calculatedStatus] || 0;
+          if (valA < valB) return -1 * modifier;
+          if (valA > valB) return 1 * modifier;
+          
+          // Fallbacks for equivalent statuses
+          const typeA = a.Type || "";
+          const typeB = b.Type || "";
+          if (typeA < typeB) return -1;
+          if (typeA > typeB) return 1;
+          
+          const titleA = (a.title || "").toLowerCase();
+          const titleB = (b.title || "").toLowerCase();
+          if (titleA < titleB) return -1;
+          if (titleA > titleB) return 1;
+          return 0;
+      }
       
-      // 1. Validés en bas
-      if (statusA === "valid" && statusB !== "valid") return 1;
-      if (statusA !== "valid" && statusB === "valid") return -1;
+      if (key === 'title') {
+          const valA = (a.title || "").toLowerCase();
+          const valB = (b.title || "").toLowerCase();
+          if (valA < valB) return -1 * modifier;
+          if (valA > valB) return 1 * modifier;
+          return 0;
+      }
       
-      // 2. Tri par Type
-      const typeA = a.Type || "";
-      const typeB = b.Type || "";
-      if (typeA < typeB) return -1;
-      if (typeA > typeB) return 1;
+      if (key === 'Type') {
+          const valA = a.Type || "";
+          const valB = b.Type || "";
+          if (valA < valB) return -1 * modifier;
+          if (valA > valB) return 1 * modifier;
+          return 0;
+      }
       
-      // 3. Tri par Ordre Alpha Entité
-      const titleA = (a.title || "").toLowerCase();
-      const titleB = (b.title || "").toLowerCase();
-      if (titleA < titleB) return -1;
-      if (titleA > titleB) return 1;
+      if (key === 'Montant') {
+          const valA = parseFloat(a.Recette) || 0;
+          const valB = parseFloat(b.Recette) || 0;
+          if (valA < valB) return -1 * modifier;
+          if (valA > valB) return 1 * modifier;
+          return 0;
+      }
+      
+      if (key === 'Mode') {
+          const valA = (a.tracking?.Type_Paiement || "").toLowerCase();
+          const valB = (b.tracking?.Type_Paiement || "").toLowerCase();
+          if (valA < valB) return -1 * modifier;
+          if (valA > valB) return 1 * modifier;
+          return 0;
+      }
+      
+      if (key === 'Date') {
+          const apiDateA = a.tracking?.date_paiement || a.tracking?.Date_Paiement || "";
+          const apiDateB = b.tracking?.date_paiement || b.tracking?.Date_Paiement || "";
+          const valA = parseDateFromApi(apiDateA) || "";
+          const valB = parseDateFromApi(apiDateB) || "";
+          if (valA < valB) return -1 * modifier;
+          if (valA > valB) return 1 * modifier;
+          return 0;
+      }
+      
+      if (key === 'Remise') {
+          const valA = (a.Numero_de_remise || "").toLowerCase();
+          const valB = (b.Numero_de_remise || "").toLowerCase();
+          
+          // Vérifier si le numéro de remise est purement numérique ou contient des lettres
+          const numA = parseInt(valA, 10);
+          const numB = parseInt(valB, 10);
+          
+          if (!isNaN(numA) && !isNaN(numB) && numA.toString() === valA && numB.toString() === valB) {
+              if (numA < numB) return -1 * modifier;
+              if (numA > numB) return 1 * modifier;
+          } else {
+              if (valA < valB) return -1 * modifier;
+              if (valA > valB) return 1 * modifier;
+          }
+          return 0;
+      }
       
       return 0;
   });
+
+  const handleSort = (key) => {
+      let direction = 'asc';
+      if (sortConfig.key === key && sortConfig.direction === 'asc') {
+          direction = 'desc';
+      }
+      setSortConfig({ key, direction });
+  };
+
+  const getSortIndicator = (key) => {
+      const activeColor = "white";
+      const inactiveColor = "#666"; // Gris foncé pour la flèche inactive
+      
+      if (sortConfig.key !== key) {
+          return <span style={{ color: inactiveColor }}> ↕</span>;
+      }
+      return <span style={{ color: activeColor }}>{sortConfig.direction === 'asc' ? " ↑" : " ↓"}</span>;
+  };
 
   const handleEditClick = (entity) => {
     setEditingId(entity.Id);
@@ -240,6 +336,12 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
     textTransform: "uppercase",
   };
 
+  const sortableThStyle = {
+    ...thStyle,
+    cursor: "pointer",
+    userSelect: "none",
+  };
+
   const tdStyle = {
     border: "1px solid black",
     padding: "10px",
@@ -269,6 +371,29 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
           >
             💳 Suivi des Paiements
           </h1>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", justifyContent: "center" }}>
+            <label htmlFor="statusFilter" style={{ fontWeight: "bold" }}>Filtre Statut :</label>
+            <select
+              id="statusFilter"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                fontSize: "1rem",
+                border: "2px solid black",
+                backgroundColor: "white",
+                cursor: "pointer",
+                boxShadow: "2px 2px 0px black"
+              }}
+            >
+              <option value="all">Tous</option>
+              <option value="pending">❌ En attente (Rouge)</option>
+              <option value="intermediate">⏳ Intermédiaire (Jaune)</option>
+              <option value="valid">✅ Validés (Vert)</option>
+            </select>
+          </div>
+
           <Link
             to="/"
             style={{
@@ -309,22 +434,36 @@ const SuiviPaiement = ({ entities, refreshEntities, userRole }) => {
           >
             <thead>
               <tr>
-                <th style={thStyle}>Entité</th>
-                <th style={thStyle}>Type</th>
-                <th style={thStyle}>Montant (€)</th>
-                <th style={thStyle}>Mode de paiement</th>
-                <th style={thStyle}>Date de paiement</th>
-                <th style={thStyle}>Numéro de remise</th>
-                <th style={thStyle}>Actions</th>
+                <th style={sortableThStyle} onClick={() => handleSort('title')} title="Trier par Entité">
+                    Entité{getSortIndicator('title')}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort('Type')} title="Trier par Type">
+                    Type{getSortIndicator('Type')}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort('Montant')} title="Trier par Montant">
+                    Montant (€){getSortIndicator('Montant')}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort('Mode')} title="Trier par Mode de paiement">
+                    Mode de paiement{getSortIndicator('Mode')}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort('Date')} title="Trier par Date">
+                    Date de paiement{getSortIndicator('Date')}
+                </th>
+                <th style={sortableThStyle} onClick={() => handleSort('Remise')} title="Trier par Numéro de remise">
+                    Numéro de remise{getSortIndicator('Remise')}
+                </th>
+                <th style={thStyle}>
+                    Actions
+                </th>
               </tr>
             </thead>
             <tbody>
               {sortedEntities.map((entity) => {
                 
-                const tracking = getTrackingRecord(entity);
+                const tracking = entity.tracking;
                 const modePaiement = tracking?.Type_Paiement || "";
                 const datePaiement = tracking?.date_paiement || tracking?.Date_Paiement || "";
-                const status = getStatus(entity, tracking);
+                const status = entity.calculatedStatus;
                 
                 let bgColor = "transparent";
                 if (editingId === entity.Id) {
