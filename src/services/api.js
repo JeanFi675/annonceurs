@@ -270,6 +270,37 @@ export const triggerMecenatWebhook = async (payload) => {
 // Link ID for Partenaires -> Stand (provided by user)
 const PARTENAIRE_STAND_LINK_ID = "cised9h8iiyt5db";
 
+// --- Tombola Config Table (mpl1f2v0v5p163o) ---
+const TOMBOLA_CONFIG_TABLE_ID = 'mpl1f2v0v5p163o';
+
+export const fetchTombolaConfig = async () => {
+  try {
+    const token = import.meta.env.VITE_API_TOKEN;
+    const url = `${BASE_API_URL}/${TOMBOLA_CONFIG_TABLE_ID}/records`;
+    const response = await axios.get(url, { headers: { 'xc-token': token }, params: { limit: 1 } });
+    return (response.data.list || [])[0] || null;
+  } catch (error) {
+    console.error('Error fetching tombola config:', error);
+    return null;
+  }
+};
+
+export const saveTombolaConfig = async (id, data) => {
+  const token = import.meta.env.VITE_API_TOKEN;
+  const url = `${BASE_API_URL}/${TOMBOLA_CONFIG_TABLE_ID}/records`;
+  if (id) {
+    const response = await axios.patch(url, [{ Id: id, ...data }], {
+      headers: { 'xc-token': token, 'Content-Type': 'application/json' }
+    });
+    return response.data;
+  } else {
+    const response = await axios.post(url, data, {
+      headers: { 'xc-token': token, 'Content-Type': 'application/json' }
+    });
+    return response.data;
+  }
+};
+
 // --- Tombola Lots Table (m63tnvfg57r0bkp) ---
 const TOMBOLA_LOTS_TABLE_ID = 'm63tnvfg57r0bkp';
 

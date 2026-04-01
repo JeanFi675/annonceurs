@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTrackingData, fetchTombolaLots, updateTombolaLot } from '../services/api';
+import { fetchTrackingData, fetchTombolaLots, updateTombolaLot, fetchTombolaConfig, saveTombolaConfig } from '../services/api';
 import { Link } from 'react-router-dom';
 
 const VALID_STATUSES = ['Confirmé (en attente de paiement)', 'Paiement effectué'];
@@ -9,15 +9,19 @@ const TombolaPlanning = ({ entities }) => {
     const [lots, setLots] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState({});
+    const [config, setConfig] = useState({ Id: null, Nb_Tickets: '', Tarif: '' });
+    const [savingConfig, setSavingConfig] = useState(false);
 
     useEffect(() => {
         const load = async () => {
-            const [tracking, allLots] = await Promise.all([
+            const [tracking, allLots, cfg] = await Promise.all([
                 fetchTrackingData('Tombola (Lots)'),
-                fetchTombolaLots()
+                fetchTombolaLots(),
+                fetchTombolaConfig()
             ]);
             setTrackingData(tracking);
             setLots(allLots);
+            if (cfg) setConfig({ Id: cfg.Id, Nb_Tickets: cfg.Nb_Tickets ?? '', Tarif: cfg.Tarif ?? '' });
             setLoading(false);
         };
         load();
@@ -61,6 +65,27 @@ const TombolaPlanning = ({ entities }) => {
 
     const pctSam = totaux.totalLots > 0 ? Math.round(totaux.samLots / totaux.totalLots * 100) : 0;
     const pctDim = totaux.totalLots > 0 ? Math.round(totaux.dimLots / totaux.totalLots * 100) : 0;
+
+    const handleConfigBlur = async (field, value) => {
+        const parsed = parseFloat(value) || null;
+        const updated = { ...config, [field]: parsed ?? '' };
+        setConfig(updated);
+        setSavingConfig(true);
+        try {
+            const result = await saveTombolaConfig(config.Id, { [field]: parsed });
+            if (!config.Id && result?.Id) setConfig(prev => ({ ...prev, Id: result.Id }));
+        } finally {
+            setSavingConfig(false);
+        }
+    };
+
+    // Calculs tombola
+    const nbTickets = parseFloat(config.Nb_Tickets) || 0;
+    const tarif = parseFloat(config.Tarif) || 0;
+    const gainTotal = nbTickets * 2 * tarif; // x2 pour Sam + Dim
+    const totalLotsGlobal = totaux.totalLots;
+    const totalTickets = nbTickets * 2;
+    const pctGagnant = totalTickets > 0 ? (totalLotsGlobal / totalTickets * 100) : 0;
 
     if (loading) {
         return <div style={{ padding: '20px', fontFamily: 'Space Grotesk, sans-serif', fontSize: '1.2rem', fontWeight: 'bold' }}>Chargement...</div>;
@@ -115,6 +140,70 @@ const TombolaPlanning = ({ entities }) => {
                         <div style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px' }}>{pct}% du total</div>
                     </div>
                 ))}
+            </div>
+
+            {/* Calculateur */}
+            <div style={{
+                backgroundColor: 'var(--brutal-white)', border: 'var(--brutal-border)',
+                boxShadow: 'var(--brutal-shadow)', padding: '20px', marginBottom: '30px'
+            }}>
+                <h2 style={{ margin: '0 0 16px', fontSize: '1.1rem', textTransform: 'uppercase', fontWeight: '900' }}>
+                    Calculateur {savingConfig && <span style={{ fontSize: '0.75rem', fontWeight: 'normal', color: '#aaa' }}>enregistrement...</span>}
+                </h2>
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '20px' }}>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
+                            Nb tickets / journée
+                        </label>
+                        <input
+                            type="number"
+                            min="0"
+                            defaultValue={config.Nb_Tickets}
+                            onBlur={e => handleConfigBlur('Nb_Tickets', e.target.value)}
+                            style={{ width: '120px', padding: '8px', border: '2px solid black', fontSize: '1rem', fontWeight: 'bold', borderRadius: 0 }}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' }}>
+                            Tarif / ticket (€)
+                        </label>
+                        <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            defaultValue={config.Tarif}
+                            onBlur={e => handleConfigBlur('Tarif', e.target.value)}
+                            style={{ width: '120px', padding: '8px', border: '2px solid black', fontSize: '1rem', fontWeight: 'bold', borderRadius: 0 }}
+                        />
+                    </div>
+                </div>
+
+                {nbTickets > 0 && tarif > 0 && (
+                    <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '140px', backgroundColor: '#e8f5e9', border: '2px solid #4CAF50', padding: '14px' }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#2e7d32', marginBottom: '6px' }}>
+                                Gain si tickets vendus
+                            </div>
+                            <div style={{ fontSize: '2rem', fontWeight: '900', lineHeight: 1 }}>
+                                {gainTotal.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '4px' }}>
+                                {nbTickets.toLocaleString('fr-FR')} tickets × 2 jours × {tarif} €
+                            </div>
+                        </div>
+                        <div style={{ flex: 1, minWidth: '140px', backgroundColor: totalLotsGlobal > 0 ? '#fff3cd' : '#f5f5f5', border: `2px solid ${totalLotsGlobal > 0 ? '#e6a817' : '#ccc'}`, padding: '14px' }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', color: '#856404', marginBottom: '6px' }}>
+                                % tickets gagnants
+                            </div>
+                            <div style={{ fontSize: '2rem', fontWeight: '900', lineHeight: 1 }}>
+                                {pctGagnant.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} %
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#555', marginTop: '4px' }}>
+                                {totalLotsGlobal} lots / {totalTickets.toLocaleString('fr-FR')} tickets
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Cartes par annonceur */}
