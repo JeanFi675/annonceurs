@@ -270,6 +270,52 @@ export const triggerMecenatWebhook = async (payload) => {
 // Link ID for Partenaires -> Stand (provided by user)
 const PARTENAIRE_STAND_LINK_ID = "cised9h8iiyt5db";
 
+// --- Tombola Lots Table (m63tnvfg57r0bkp) ---
+const TOMBOLA_LOTS_TABLE_ID = 'm63tnvfg57r0bkp';
+
+export const fetchTombolaLots = async () => {
+  try {
+    const token = import.meta.env.VITE_API_TOKEN;
+    const url = `${BASE_API_URL}/${TOMBOLA_LOTS_TABLE_ID}/records`;
+    const response = await axios.get(url, {
+      headers: { 'xc-token': token },
+      params: { limit: 1000 }
+    });
+    return response.data.list || [];
+  } catch (error) {
+    console.error('Error fetching tombola lots:', error);
+    return [];
+  }
+};
+
+export const createTombolaLot = async (tombola_id) => {
+  const token = import.meta.env.VITE_API_TOKEN;
+  const url = `${BASE_API_URL}/${TOMBOLA_LOTS_TABLE_ID}/records`;
+  const response = await axios.post(url, { Tombola_id: tombola_id, Description: '', Quantite: 1 }, {
+    headers: { 'xc-token': token, 'Content-Type': 'application/json' }
+  });
+  return response.data;
+};
+
+export const updateTombolaLot = async (id, data) => {
+  const token = import.meta.env.VITE_API_TOKEN;
+  const url = `${BASE_API_URL}/${TOMBOLA_LOTS_TABLE_ID}/records`;
+  const response = await axios.patch(url, [{ Id: id, ...data }], {
+    headers: { 'xc-token': token, 'Content-Type': 'application/json' }
+  });
+  return response.data;
+};
+
+export const deleteTombolaLot = async (id) => {
+  const token = import.meta.env.VITE_API_TOKEN;
+  const url = `${BASE_API_URL}/${TOMBOLA_LOTS_TABLE_ID}/records`;
+  const response = await axios.delete(url, {
+    headers: { 'xc-token': token },
+    data: [{ Id: id }]
+  });
+  return response.data;
+};
+
 export const synchronizeTrackingType = async (entityId, newType, _passedEntity) => {
   console.log(`[Sync] Synchronizing Entity ${entityId} to New Type: ${newType}`);
 

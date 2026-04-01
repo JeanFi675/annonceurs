@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { fetchTrackingData, deleteTrackingRecord, updateTrackingRecord, updateEntity, triggerInvoiceWebhook, triggerMecenatWebhook, createAndLinkRecord } from '../services/api';
+import { fetchTrackingData, deleteTrackingRecord, updateTrackingRecord, updateEntity, triggerInvoiceWebhook, triggerMecenatWebhook, createAndLinkRecord, fetchTombolaLots, createTombolaLot, updateTombolaLot, deleteTombolaLot } from '../services/api';
 import { Link } from 'react-router-dom';
 import FactureModal from '../components/FactureModal';
 import MecenatModal from '../components/MecenatModal';
@@ -48,6 +48,8 @@ const SuiviAvancement = ({ entities, userRole }) => {
     const [selectedMecenatEntity, setSelectedMecenatEntity] = useState(null);
     const [selectedMecenatTracking, setSelectedMecenatTracking] = useState(null);
 
+    const [tombolaLots, setTombolaLots] = useState({}); // keyed by tombola tracking record Id
+
     const relevantEntities = localEntities.filter(e => {
         const s = e.Statuts;
         const validStatuses = ['Confirmé (en attente de paiement)', 'Paiement effectué'];
@@ -80,6 +82,15 @@ const SuiviAvancement = ({ entities, userRole }) => {
             setLoading(true);
             const data = await fetchTrackingData(activeTab);
             setTrackingData(prev => ({ ...prev, [activeTab]: data }));
+            if (activeTab === 'Tombola (Lots)') {
+                const lots = await fetchTombolaLots();
+                const grouped = {};
+                lots.forEach(lot => {
+                    if (!grouped[lot.Tombola_id]) grouped[lot.Tombola_id] = [];
+                    grouped[lot.Tombola_id].push(lot);
+                });
+                setTombolaLots(grouped);
+            }
             setLoading(false);
         };
         loadTracking();
@@ -240,6 +251,42 @@ const SuiviAvancement = ({ entities, userRole }) => {
             await triggerMecenatWebhook(formData);
         } catch {
             // Already handled alert in save or trigger
+        }
+    };
+
+    const handleLotUpdate = async (lotId, field, value, tombola_id) => {
+        setTombolaLots(prev => ({
+            ...prev,
+            [tombola_id]: (prev[tombola_id] || []).map(l => l.Id === lotId ? { ...l, [field]: value } : l)
+        }));
+        try {
+            await updateTombolaLot(lotId, { [field]: value });
+        } catch {
+            alert('Erreur mise à jour lot');
+        }
+    };
+
+    const handleLotAdd = async (tombola_id) => {
+        try {
+            const newLot = await createTombolaLot(tombola_id);
+            setTombolaLots(prev => ({
+                ...prev,
+                [tombola_id]: [...(prev[tombola_id] || []), newLot]
+            }));
+        } catch {
+            alert('Erreur création lot');
+        }
+    };
+
+    const handleLotDelete = async (lotId, tombola_id) => {
+        setTombolaLots(prev => ({
+            ...prev,
+            [tombola_id]: (prev[tombola_id] || []).filter(l => l.Id !== lotId)
+        }));
+        try {
+            await deleteTombolaLot(lotId);
+        } catch {
+            alert('Erreur suppression lot');
         }
     };
 
@@ -726,21 +773,34 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                             </div>
                                         )}
                                         {activeTab === 'Tombola (Lots)' && (
-                                            <>
-                                                <textarea
-                                                    placeholder="Description Lot"
-                                                    value={tracking?.Description_Lot || ''}
-                                                    onChange={(e) => handleUpdate(trackId, 'Description_Lot', e.target.value, entity.Id)}
-                                                    style={{ marginTop: '5px', width: '90%', padding: '5px', fontSize: '0.8rem', border: '1px dashed black', resize: 'vertical' }}
-                                                />
-                                                <input
-                                                    type="number"
-                                                    placeholder="Nb Lot"
-                                                    value={tracking?.Nb_Lot || ''}
-                                                    onChange={(e) => handleUpdate(trackId, 'Nb_Lot', e.target.value, entity.Id)}
-                                                    style={{ marginTop: '5px', width: '80px', padding: '5px', fontSize: '0.8rem', border: '1px dashed black' }}
-                                                />
-                                            </>
+                                            <div style={{ marginTop: '8px' }}>
+                                                {(tombolaLots[trackId] || []).map(lot => (
+                                                    <div key={lot.Id} style={{ display: 'flex', gap: '5px', alignItems: 'center', marginBottom: '4px' }}>
+                                                        <input
+                                                            type="text"
+                                                            placeholder="Description"
+                                                            defaultValue={lot.Description || ''}
+                                                            onBlur={(e) => handleLotUpdate(lot.Id, 'Description', e.target.value, trackId)}
+                                                            style={{ flex: 1, padding: '4px 6px', fontSize: '0.8rem', border: '1px dashed black' }}
+                                                        />
+                                                        <input
+                                                            type="number"
+                                                            placeholder="Qté"
+                                                            defaultValue={lot.Quantite || ''}
+                                                            onBlur={(e) => handleLotUpdate(lot.Id, 'Quantite', parseInt(e.target.value) || 0, trackId)}
+                                                            style={{ width: '45px', padding: '4px', fontSize: '0.8rem', border: '1px dashed black', textAlign: 'center' }}
+                                                        />
+                                                        <button
+                                                            onClick={() => handleLotDelete(lot.Id, trackId)}
+                                                            style={{ padding: '3px 7px', border: '1px solid red', backgroundColor: 'white', color: 'red', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', flexShrink: 0 }}
+                                                        >✕</button>
+                                                    </div>
+                                                ))}
+                                                <button
+                                                    onClick={() => handleLotAdd(trackId)}
+                                                    style={{ marginTop: '4px', padding: '4px 10px', border: '1px dashed black', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                                                >+ Lot</button>
+                                            </div>
                                         )}
                                         {activeTab === 'Stand' && (
                                             <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
