@@ -29,8 +29,12 @@ const parseDateFromApi = (apiDateString) => {
     return ''; // Unknown format
 };
 
+const OPERATOR_TYPES = ['Tombola (Lots)', 'Stand'];
+
 const SuiviAvancement = ({ entities, userRole }) => {
-    const [activeTab, setActiveTab] = useState(TYPES[0]);
+    const isOperator = userRole === 'USER';
+    const visibleTypes = isOperator ? OPERATOR_TYPES : TYPES;
+    const [activeTab, setActiveTab] = useState(isOperator ? 'Tombola (Lots)' : TYPES[0]);
     const [trackingData, setTrackingData] = useState({});
     const [loading, setLoading] = useState(false);
     const [filterMode, setFilterMode] = useState('all'); // 'all', 'todo', 'done'
@@ -536,7 +540,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
     };
 
 
-    if (userRole !== 'ADMIN') return <div style={{ padding: '20px' }}>Accès refusé.</div>;
+    if (userRole !== 'ADMIN' && userRole !== 'USER') return <div style={{ padding: '20px' }}>Accès refusé.</div>;
 
     return (
         <div style={{ backgroundColor: 'var(--brutal-bg)', minHeight: '100vh', padding: '20px', fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -555,7 +559,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}>
-                    {TYPES.map(type => (
+                    {visibleTypes.map(type => (
                         <button
                             key={type}
                             onClick={() => setActiveTab(type)}
@@ -659,8 +663,8 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                                 </span>
                                             )}
                                         </div>
-                                        {/* Contact Email - Show only if exists for Partner-Stands */}
-                                        {!(activeTab === 'Stand' && entity.Type !== 'Stand' && !tracking?.Email_Contact) && (
+                                        {/* Contact Email - Show only if exists for Partner-Stands, and hidden for operators */}
+                                        {!isOperator && !(activeTab === 'Stand' && entity.Type !== 'Stand' && !tracking?.Email_Contact) && (
                                             <input
                                                 type="text"
                                                 placeholder="Email Contact"
@@ -816,7 +820,7 @@ const SuiviAvancement = ({ entities, userRole }) => {
                                 )}
 
                                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-                                    {(activeTab === 'Stand' || activeTab === 'Encart Pub' || activeTab === 'Partenaires') && (
+                                    {(activeTab === 'Stand' || activeTab === 'Encart Pub' || activeTab === 'Partenaires') && userRole === 'ADMIN' && (
                                         <button
                                             onClick={() => handleOpenInvoice(entity, tracking)}
                                             style={{

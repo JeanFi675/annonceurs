@@ -497,9 +497,6 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                             <Link to="/dashboard" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'red', fontWeight: 'bold' }}>
                                 Dashboard
                             </Link>
-                            <Link to="/suivi" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'blue', fontWeight: 'bold' }}>
-                                Suivi
-                            </Link>
                             <Link to="/brochure-admin" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'purple', fontWeight: 'bold' }}>
                                 Brochure
                             </Link>
@@ -507,6 +504,11 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                                 Paiements
                             </Link>
                         </>
+                    )}
+                    {(userRole === 'ADMIN' || userRole === 'USER') && (
+                        <Link to="/suivi" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'blue', fontWeight: 'bold' }}>
+                            Suivi
+                        </Link>
                     )}
                     <Link to="/bilan" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'green', fontWeight: 'bold' }}>
                         Bilan
