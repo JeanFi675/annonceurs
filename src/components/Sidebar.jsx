@@ -506,9 +506,14 @@ const Sidebar = ({ filters, setFilters, entities, refreshEntities, newLocation, 
                         </>
                     )}
                     {(userRole === 'ADMIN' || userRole === 'USER') && (
-                        <Link to="/suivi" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'blue', fontWeight: 'bold' }}>
-                            Suivi
-                        </Link>
+                        <>
+                            <Link to="/suivi" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'blue', fontWeight: 'bold' }}>
+                                Suivi
+                            </Link>
+                            <Link to="/tombola" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: '#c0392b', fontWeight: 'bold' }}>
+                                Tombola
+                            </Link>
+                        </>
                     )}
                     <Link to="/bilan" style={{ fontSize: '0.9rem', textDecoration: 'underline', color: 'green', fontWeight: 'bold' }}>
                         Bilan

@@ -677,6 +677,117 @@ const SuiviAvancement = ({ entities, userRole }) => {
             {loading ? (
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>Chargement...</div>
             ) : (
+                <>
+                {/* ===== TOMBOLA : rendu dédié ===== */}
+                {activeTab === 'Tombola (Lots)' && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
+                        {filteredItems.map(({ entity, tracking, complete }) => {
+                            const trackId = tracking?.Id;
+                            const referent = entity?.Référent_partenariat_club;
+                            const lots = tombolaLots[trackId] || [];
+                            const totalLots = lots.reduce((s, l) => s + (parseInt(l.Quantite) || 0), 0);
+                            const totalValeur = lots.reduce((s, l) => s + ((parseInt(l.Quantite) || 0) * (parseFloat(l.Valeur_Unitaire) || 0)), 0);
+
+                            return (
+                                <div key={entity.Id} style={{
+                                    backgroundColor: 'var(--brutal-white)',
+                                    border: 'var(--brutal-border)',
+                                    boxShadow: 'var(--brutal-shadow)',
+                                    padding: '20px',
+                                    display: 'flex', flexDirection: 'column', gap: '14px',
+                                    position: 'relative'
+                                }}>
+                                    {/* Barre statut */}
+                                    <div style={{
+                                        position: 'absolute', top: 0, left: 0, right: 0, height: '6px',
+                                        backgroundColor: complete ? '#4CAF50' : '#FF5252',
+                                        borderBottom: '2px solid black'
+                                    }} />
+
+                                    {/* En-tête */}
+                                    <div style={{ marginTop: '8px' }}>
+                                        <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: '900' }}>{entity.title}</h3>
+                                        {referent && (
+                                            <div style={{ fontSize: '0.85rem', color: '#555', marginTop: '3px' }}>
+                                                Réf. : <strong>{referent}</strong>
+                                            </div>
+                                        )}
+                                        <div style={{ fontSize: '0.8rem', color: '#888', fontStyle: 'italic', marginTop: '2px' }}>{entity.Statuts}</div>
+                                    </div>
+
+                                    {/* Cases à cocher */}
+                                    <div style={{ display: 'flex', gap: '10px' }}>
+                                        <ToggleButton
+                                            label="Lot Récupéré"
+                                            checked={tracking?.Lot_Recupere}
+                                            onChange={(val) => handleUpdate(trackId, 'Lot_Recupere', val, entity.Id)}
+                                        />
+                                        <ToggleButton
+                                            label="Logo Reçu"
+                                            checked={tracking?.Logo_Recu}
+                                            onChange={(val) => handleUpdate(trackId, 'Logo_Recu', val, entity.Id)}
+                                        />
+                                    </div>
+
+                                    {/* Commentaire */}
+                                    <textarea
+                                        placeholder="Commentaire..."
+                                        defaultValue={tracking?.Commentaires || ''}
+                                        onBlur={(e) => handleUpdate(trackId, 'Commentaires', e.target.value, entity.Id)}
+                                        rows={2}
+                                        style={{ width: '100%', padding: '6px', fontSize: '0.8rem', border: '1px solid #ccc', resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                                    />
+
+                                    {/* Liste des lots */}
+                                    <div>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                                            <span>Lots ({totalLots})</span>
+                                            {totalValeur > 0 && <span style={{ backgroundColor: '#fffacd', padding: '0 5px' }}>{totalValeur.toLocaleString('fr-FR')} €</span>}
+                                        </div>
+                                        {lots.map(lot => (
+                                            <div key={lot.Id} style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '5px' }}>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Description"
+                                                    defaultValue={lot.Description || ''}
+                                                    onBlur={(e) => handleLotUpdate(lot.Id, 'Description', e.target.value, trackId)}
+                                                    style={{ flex: 1, padding: '4px 6px', fontSize: '0.8rem', border: '1px dashed #aaa', minWidth: 0 }}
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Qté"
+                                                    defaultValue={lot.Quantite ?? ''}
+                                                    onBlur={(e) => handleLotUpdate(lot.Id, 'Quantite', parseInt(e.target.value) || 0, trackId)}
+                                                    style={{ width: '42px', padding: '4px', fontSize: '0.8rem', border: '1px dashed #aaa', textAlign: 'center' }}
+                                                    title="Quantité"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    placeholder="Valeur €"
+                                                    defaultValue={lot.Valeur_Unitaire ?? ''}
+                                                    onBlur={(e) => handleLotUpdate(lot.Id, 'Valeur_Unitaire', parseFloat(e.target.value) || 0, trackId)}
+                                                    style={{ width: '58px', padding: '4px', fontSize: '0.8rem', border: '1px dashed #aaa', textAlign: 'right' }}
+                                                    title="Valeur unitaire €"
+                                                />
+                                                <button
+                                                    onClick={() => handleLotDelete(lot.Id, trackId)}
+                                                    style={{ padding: '3px 7px', border: '1px solid #ff5252', backgroundColor: 'white', color: '#ff5252', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', flexShrink: 0 }}
+                                                >✕</button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            onClick={() => handleLotAdd(trackId)}
+                                            style={{ marginTop: '4px', padding: '5px 12px', border: '1px dashed black', backgroundColor: 'white', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold', width: '100%' }}
+                                        >+ Ajouter un lot</button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {/* ===== AUTRES TYPES : rendu générique ===== */}
+                {activeTab !== 'Tombola (Lots)' && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
                     {filteredItems.map(({ entity, tracking, complete, missing }) => {
                         const trackId = tracking?.Id;
@@ -1077,12 +1188,14 @@ const SuiviAvancement = ({ entities, userRole }) => {
                         );
                     })}
                 </div>
-            )}
+                )}
 
             {filteredItems.length === 0 && !loading && (
                 <div style={{ textAlign: 'center', padding: '50px', fontSize: '1.2rem', color: '#666' }}>
                     Aucune entité trouvée pour ce filtre. ⛱️
                 </div>
+            )}
+                </>
             )}
 
             <FactureModal

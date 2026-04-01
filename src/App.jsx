@@ -10,6 +10,7 @@ import BilanFinancier from './pages/BilanFinancier';
 import Login from './components/Login';
 import BrochureAdmin from './pages/BrochureAdmin';
 import SuiviPaiement from './pages/SuiviPaiement';
+import TombolaPlanning from './pages/TombolaPlanning';
 import { fetchEntities } from './services/api';
 
 function App() {
@@ -137,6 +138,7 @@ function App() {
         <Route path="/bilan" element={<BilanFinancier entities={entities} />} />
         <Route path="/brochure-admin" element={<BrochureAdmin />} />
         <Route path="/suivi-paiement" element={<SuiviPaiement entities={entities} refreshEntities={loadData} userRole={userRole} />} />
+        <Route path="/tombola" element={<TombolaPlanning entities={entities} />} />
       </Routes>
     </Router>
   );
