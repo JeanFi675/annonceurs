@@ -70,8 +70,8 @@ const TombolaPlanning = ({ entities }) => {
         <div style={{ backgroundColor: 'var(--brutal-bg)', minHeight: '100vh', padding: '20px', fontFamily: 'Space Grotesk, sans-serif' }}>
 
             {/* Header */}
-            <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h1 style={{ fontSize: '2.5rem', margin: 0, textTransform: 'uppercase' }}>Répartition Tombola</h1>
+            <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <h1 style={{ fontSize: 'clamp(1.4rem, 5vw, 2.5rem)', margin: 0, textTransform: 'uppercase' }}>Répartition Tombola</h1>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <Link to="/suivi" style={{
                         backgroundColor: 'white', color: 'black', padding: '10px 20px',
@@ -162,60 +162,58 @@ const TombolaPlanning = ({ entities }) => {
                                     </div>
                                 </div>
 
-                                {/* Table des lots */}
-                                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                                    <thead>
-                                        <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid black' }}>
-                                            <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem' }}>Description</th>
-                                            <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', width: '60px' }}>Total</th>
-                                            <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', width: '100px', backgroundColor: '#fff3cd' }}>Samedi</th>
-                                            <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', width: '80px', backgroundColor: '#d1ecf1' }}>Dimanche</th>
-                                            <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 'bold', textTransform: 'uppercase', fontSize: '0.75rem', width: '80px' }}>Valeur</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {cardLots.map(lot => {
-                                            const qte = parseInt(lot.Quantite) || 0;
-                                            const sam = lot.Nb_Samedi === null || lot.Nb_Samedi === undefined ? '' : parseInt(lot.Nb_Samedi);
-                                            const dim = sam !== '' ? qte - sam : '—';
-                                            const isOverflow = typeof dim === 'number' && dim < 0;
-                                            const val = parseFloat(lot.Valeur_Unitaire) || 0;
+                                {/* En-tête colonnes */}
+                                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px 0', borderBottom: '2px solid black', marginBottom: '4px' }}>
+                                    <div style={{ flex: 1, fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase' }}>Description</div>
+                                    <div style={{ width: '32px', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center' }}>Tot.</div>
+                                    <div style={{ width: '70px', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', backgroundColor: '#fff3cd', padding: '2px 4px' }}>Sam.</div>
+                                    <div style={{ width: '32px', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center', backgroundColor: '#d1ecf1', padding: '2px 4px' }}>Dim.</div>
+                                    <div style={{ width: '52px', fontSize: '0.7rem', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right' }}>Val.</div>
+                                </div>
 
-                                            return (
-                                                <tr key={lot.Id} style={{ borderBottom: '1px solid #eee' }}>
-                                                    <td style={{ padding: '8px', fontWeight: '500' }}>{lot.Description || <span style={{ color: '#aaa', fontStyle: 'italic' }}>—</span>}</td>
-                                                    <td style={{ padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{qte}</td>
-                                                    <td style={{ padding: '4px 8px', textAlign: 'center', backgroundColor: '#fff3cd' }}>
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={qte}
-                                                            value={sam === '' ? '' : sam}
-                                                            placeholder="0"
-                                                            onChange={e => handleSamediChange(lot, e.target.value)}
-                                                            style={{
-                                                                width: '60px', padding: '4px', textAlign: 'center',
-                                                                border: '2px solid #e6a817', fontWeight: 'bold',
-                                                                fontSize: '0.9rem', borderRadius: 0,
-                                                                opacity: saving[lot.Id] ? 0.5 : 1
-                                                            }}
-                                                        />
-                                                    </td>
-                                                    <td style={{
-                                                        padding: '8px', textAlign: 'center', fontWeight: 'bold',
-                                                        backgroundColor: '#d1ecf1',
-                                                        color: isOverflow ? 'red' : 'black'
-                                                    }}>
-                                                        {isOverflow ? '⚠' : dim}
-                                                    </td>
-                                                    <td style={{ padding: '8px', textAlign: 'right', color: val > 0 ? '#333' : '#bbb' }}>
-                                                        {val > 0 ? `${val.toLocaleString('fr-FR')} €` : '—'}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
+                                {/* Lignes lots */}
+                                {cardLots.map(lot => {
+                                    const qte = parseInt(lot.Quantite) || 0;
+                                    const sam = lot.Nb_Samedi === null || lot.Nb_Samedi === undefined ? '' : parseInt(lot.Nb_Samedi);
+                                    const dim = sam !== '' ? qte - sam : '—';
+                                    const isOverflow = typeof dim === 'number' && dim < 0;
+                                    const val = parseFloat(lot.Valeur_Unitaire) || 0;
+
+                                    return (
+                                        <div key={lot.Id} style={{ display: 'flex', gap: '8px', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #eee' }}>
+                                            <div style={{ flex: 1, fontSize: '0.85rem', fontWeight: '500', wordBreak: 'break-word' }}>
+                                                {lot.Description || <span style={{ color: '#aaa', fontStyle: 'italic' }}>—</span>}
+                                            </div>
+                                            <div style={{ width: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', flexShrink: 0 }}>{qte}</div>
+                                            <div style={{ width: '70px', flexShrink: 0, backgroundColor: '#fff3cd', padding: '2px' }}>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max={qte}
+                                                    value={sam === '' ? '' : sam}
+                                                    placeholder="0"
+                                                    onChange={e => handleSamediChange(lot, e.target.value)}
+                                                    style={{
+                                                        width: '100%', padding: '5px 2px', textAlign: 'center',
+                                                        border: '2px solid #e6a817', fontWeight: 'bold',
+                                                        fontSize: '0.95rem', borderRadius: 0, boxSizing: 'border-box',
+                                                        opacity: saving[lot.Id] ? 0.5 : 1
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{
+                                                width: '32px', textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem',
+                                                flexShrink: 0, backgroundColor: '#d1ecf1', padding: '4px 2px',
+                                                color: isOverflow ? 'red' : 'black'
+                                            }}>
+                                                {isOverflow ? '⚠' : dim}
+                                            </div>
+                                            <div style={{ width: '52px', textAlign: 'right', fontSize: '0.8rem', flexShrink: 0, color: val > 0 ? '#333' : '#bbb' }}>
+                                                {val > 0 ? `${val.toLocaleString('fr-FR')} €` : '—'}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         );
                     })}
