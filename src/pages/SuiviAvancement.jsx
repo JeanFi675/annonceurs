@@ -579,11 +579,14 @@ const SuiviAvancement = ({ entities, userRole }) => {
         total: processedEntities.length,
         todo: processedEntities.filter(i => !i.complete).length,
         done: processedEntities.filter(i => i.complete).length,
-        revenuePromise: processedEntities.reduce((sum, item) => {
-            // Exclude Partner-Stands from Revenue Calculation in Stand Tab
-            if (activeTab === 'Stand' && item.entity.Type !== 'Stand') return sum;
-            return sum + (parseFloat(item.entity.Recette) || 0);
-        }, 0)
+        revenuePromise: activeTab === 'Tombola (Lots)'
+            ? Object.values(tombolaLots).flat().reduce((sum, lot) => {
+                return sum + ((parseInt(lot.Quantite) || 0) * (parseFloat(lot.Valeur_Unitaire) || 0));
+            }, 0)
+            : processedEntities.reduce((sum, item) => {
+                if (activeTab === 'Stand' && item.entity.Type !== 'Stand') return sum;
+                return sum + (parseFloat(item.entity.Recette) || 0);
+            }, 0)
     };
 
 
