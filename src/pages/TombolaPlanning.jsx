@@ -90,8 +90,8 @@ const TombolaPlanning = ({ entities }) => {
                 </div>
             </div>
 
-            {/* Récap global */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+            {/* Récap global - sticky */}
+            <div style={{ position: 'sticky', top: 0, zIndex: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '30px', backgroundColor: 'var(--brutal-bg)', paddingTop: '8px', paddingBottom: '8px' }}>
                 {[
                     { label: 'Samedi', lots: totaux.samLots, val: totaux.samVal, pct: pctSam, color: '#e6a817', bg: '#fff3cd' },
                     { label: 'Dimanche', lots: totaux.dimLots, val: totaux.dimVal, pct: pctDim, color: '#17a2b8', bg: '#d1ecf1' }
